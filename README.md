@@ -7,9 +7,10 @@ This plugin allows you to define a custom authorization scheme on your mongoose 
 ## How to use
 
 First you need to add your permissions to your schema.
-###### *NOTE: It is important you do this before compiling your model*
 
 **example model**
+
+###### *NOTE: It is important you do this before compiling your model*
 
 ```
 'use strict';
