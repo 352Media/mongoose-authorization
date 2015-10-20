@@ -78,6 +78,9 @@ module.exports = users;
 ```
 
 ***example update***
+
+###### *NOTE: If you do not add the authLevel option to your request, the plugin will not attempt to authorize it. This makes it possible for you to handle requests that may not be initiated by a user (eg. system call, batch job, etc.)*
+
 ```
 users.findOneAndUpdate({user_id: userUpdate.user_id}, userUpdate, {
   authLevel: 'admin'
