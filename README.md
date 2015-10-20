@@ -55,6 +55,9 @@ var userSchema = new mongoose.Schema({
   }
 });
 
+/*
+ * Make sure you add this before compiling your model
+ */
 userSchema.permissions = {
   defaults: {
     read: ['user_id', 'email', 'first_name', 'last_name', 'avatar']
@@ -73,10 +76,24 @@ userSchema.permissions = {
 
 userSchema.plugin(require('mongoose-authorization'));
 
+/*
+ * Compile model
+ */
 var users = mongoose.model('users', userSchema);
 
 module.exports = users;
 ```
+
+In the example above we extended the **userSchema** by adding a *permissions* object. This will not persist to your documents.
+
+The permissions object consists or properties that represent your authorization levels (or groups). For each group, there are 4 permissions you can configure.
+* `save` (create) - Boolean
+* `remove` - Boolean
+* `update` - [array of fields] *NOTE: if `upsert: true`, the group will need to have `save` permissions too*
+* `read` (find) - [array of fields]
+
+You can also specify a `defaults` group, which represents permissions that are available to all groups.
+
 
 ***example update***
 
