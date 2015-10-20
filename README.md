@@ -4,11 +4,11 @@ This plugin allows you to define a custom authorization scheme on your mongoose 
 `npm install -S mongoose-authorization`
 
 
-## How to use
+## Getting Started
 
 First you need to add your permissions to your schema.
 
-**example model**
+#### example model
 
 ###### *NOTE: It is important you do this before compiling your model*
 
@@ -94,15 +94,75 @@ The permissions object consists or properties that represent your authorization 
 
 You can also specify a `defaults` group, which represents permissions that are available to all groups.
 
+#### Example Uses
+
+###### *NOTE: If you do not add the authLevel option to your request, the plugin will not attempt to authorize it. This makes it possible for you to handle requests that may not be initiated by a user (eg. system call, batch job, etc.)*
 
 ***example update***
 
-###### *NOTE: If you do not add the authLevel option to your request, the plugin will not attempt to authorize it. This makes it possible for you to handle requests that may not be initiated by a user (eg. system call, batch job, etc.)*
+```
+users.update({user_id: userUpdate.user_id}, userUpdate, {
+  authLevel: 'admin'
+}, function(err, doc) {
+  if (err) {
+    //handle error
+  } else {
+    //success
+  }
+});
+```
+
+***example findOneAndUpdate***
 
 ```
 users.findOneAndUpdate({user_id: userUpdate.user_id}, userUpdate, {
   authLevel: 'admin'
 }, function(err, doc) {
+  if (err) {
+    //handle error
+  } else {
+    //success
+  }
+});
+```
+
+
+***example find***
+
+```
+users.find({user_id: userUpdate.user_id}, null, {
+  authLevel: 'admin'
+}, function(err, doc) {
+  if (err) {
+    //handle error
+  } else {
+    //success
+  }
+});
+```
+
+***example findOne***
+
+```
+users.findOne({user_id: userUpdate.user_id}, null, {
+  authLevel: 'admin'
+}, function(err, doc) {
+  if (err) {
+    //handle error
+  } else {
+    //success
+  }
+});
+```
+
+***example findOneAndRemove***
+
+###### *NOTE: doc.remove is not supported yet*
+
+```
+users.findOneAndRemove({user_id: userUpdate.user_id}, {
+  authLevel: 'admin'
+}, function(err) {
   if (err) {
     //handle error
   } else {
