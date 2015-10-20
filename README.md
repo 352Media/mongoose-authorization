@@ -114,6 +114,8 @@ users.update({user_id: userUpdate.user_id}, userUpdate, {
 
 ***example findOneAndUpdate***
 
+###### *NOTE: the return document will be sanitized based on the group's permissions for `read`*
+
 ```
 users.findOneAndUpdate({user_id: userUpdate.user_id}, userUpdate, {
   authLevel: 'admin'
