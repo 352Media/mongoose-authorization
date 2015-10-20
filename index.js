@@ -3,10 +3,6 @@ module.exports = function(schema) {
   schema.pre('save', function(next) {
     save(this, next);
   });
-  schema.pre('remove', function(next) {
-    //TODO: add ability to handle remove
-    next();
-  });
   schema.pre('findOneAndRemove', function(next) {
     remove(this, next);
   });
@@ -73,6 +69,7 @@ module.exports = function(schema) {
   function update(schema, next) {
     var vm = schema;
     var authorizedFields = [];
+    var authorizedReturnFields = [];
     if (vm.options && vm.options.authLevel) {
       if (vm.options.upsert && !vm.schema.permissions[vm.options.authLevel].save) {
         return next(new Error('permission denied'));
@@ -88,6 +85,19 @@ module.exports = function(schema) {
         sanitizedUpdate[field] = vm._update[field];
       });
       vm._update = sanitizedUpdate;
+
+      //Detect which fields can be returned if 'new: true' is set
+      if (vm.schema.permissions[vm.options.authLevel] && vm.schema.permissions[vm.options.authLevel].read) {
+        authorizedReturnFields = authorizedReturnFields.concat(vm.schema.permissions[vm.options.authLevel].read);
+      }
+      if (vm.schema.permissions.defaults && vm.schema.permissions.defaults.read) {
+        authorizedReturnFields = authorizedReturnFields.concat(vm.schema.permissions.defaults.read);
+      }
+      var sanitizedReturnFields = {};
+      authorizedReturnFields.forEach(function(field) {
+        sanitizedReturnFields[field] = 1;
+      });
+      vm._fields = sanitizedReturnFields;
       return next();
     } else {
       return next();
