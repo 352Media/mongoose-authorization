@@ -89,14 +89,19 @@ module.exports = function(schema) {
     var authorizedReturnFields = [];
     if (vm.options && vm.options.authLevel) {
       if (vm.options.upsert && !vm.schema.permissions[vm.options.authLevel].save) {
+        //check to see if 'upsert: true' option is set, then verify if group has save permission
         return next({message: 'permission denied', reason: 'you do not have access to the following permissions: [save]'});
       }
       if (vm.schema.permissions[vm.options.authLevel] && vm.schema.permissions[vm.options.authLevel].write) {
+        //check to see if group has any write permissions and add to the authorizedFields array
         authorizedFields = authorizedFields.concat(vm.schema.permissions[vm.options.authLevel].write);
       }
       if (vm.schema.permissions.defaults && vm.schema.permissions.defaults.write) {
+        //check to see if there are any default write permissions and add to the authorizedFields array
         authorizedFields = authorizedFields.concat(vm.schema.permissions.defaults.write);
       }
+
+      //create an update object that has been sanitized based on permissions
       var sanitizedUpdate = {};
       authorizedFields.forEach(function(field) {
         sanitizedUpdate[field] = vm._update[field];
@@ -111,11 +116,17 @@ module.exports = function(schema) {
 
         //Detect which fields can be returned if 'new: true' is set
         if (vm.schema.permissions[vm.options.authLevel] && vm.schema.permissions[vm.options.authLevel].read) {
+
+          //check to see if the group has any read permissions and add to the authorizedFields array
           authorizedReturnFields = authorizedReturnFields.concat(vm.schema.permissions[vm.options.authLevel].read);
         }
         if (vm.schema.permissions.defaults && vm.schema.permissions.defaults.read) {
+
+          //check to see if there are any default read permissions and add to the authorizedFields array
           authorizedReturnFields = authorizedReturnFields.concat(vm.schema.permissions.defaults.read);
         }
+
+        //create a sanitizedReturnFields object that will be used to return only the fields that a group has access to read
         var sanitizedReturnFields = {};
         authorizedReturnFields.forEach(function(field) {
           sanitizedReturnFields[field] = 1;
