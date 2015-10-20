@@ -4,7 +4,8 @@ module.exports = function(schema) {
     save(this, next);
   });
   schema.pre('remove', function(next) {
-    remove(this, next);
+    //TODO: add ability to handle remove
+    next();
   });
   schema.pre('findOneAndRemove', function(next) {
     remove(this, next);
