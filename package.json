@@ -1,0 +1,22 @@
+{
+  "name": "mongoose-authorization",
+  "version": "0.0.1",
+  "description": "Data level authorization for Mongoose",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/352Media/mongoose-authorization.git"
+  },
+  "keywords": [
+    "mongoose"
+  ],
+  "author": "352inc <devops@352inc.com> (http://352inc.com)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/352Media/mongoose-authorization/issues"
+  },
+  "homepage": "https://github.com/352Media/mongoose-authorization#readme"
+}
