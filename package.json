@@ -1,6 +1,6 @@
 {
   "name": "mongoose-authorization",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Data level authorization for Mongoose",
   "main": "index.js",
   "scripts": {
@@ -11,12 +11,19 @@
     "url": "git+https://github.com/352Media/mongoose-authorization.git"
   },
   "keywords": [
-    "mongoose"
+    "mongoose",
+    "authorization",
+    "mongo",
+    "mongodb",
+    "permissions"
   ],
   "author": "352inc <devops@352inc.com> (http://352inc.com)",
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/352Media/mongoose-authorization/issues"
   },
-  "homepage": "https://github.com/352Media/mongoose-authorization#readme"
+  "homepage": "https://github.com/352Media/mongoose-authorization#readme",
+  "dependencies": {
+    "lodash": "^3.10.1"
+  }
 }
