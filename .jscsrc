@@ -1,0 +1,7 @@
+{
+  "preset": "google",
+  "fileExtensions": [".js", "jscs"],
+  "excludeFiles": [],
+  "maximumLineLength": 1000,
+  "requireCamelCaseOrUpperCaseIdentifiers": "ignoreProperties"
+}
