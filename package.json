@@ -1,6 +1,6 @@
 {
   "name": "mongoose-authorization",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Data level authorization for Mongoose",
   "main": "index.js",
   "scripts": {
@@ -15,7 +15,15 @@
     "authorization",
     "mongo",
     "mongodb",
-    "permissions"
+    "mongoose authorization",
+    "mongo authorization",
+    "mongodb authorization",
+    "mongoose auth",
+    "mongo auth",
+    "mongodb auth",
+    "mongoose permissions",
+    "mongo permissions",
+    "mongodb permissions"
   ],
   "author": "352inc <devops@352inc.com> (http://352inc.com)",
   "license": "ISC",
