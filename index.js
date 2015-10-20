@@ -29,7 +29,7 @@ module.exports = function(schema) {
         //check to see if the group has permission to save a new document
         return next();
       } else {
-        return next(new Error('permission denied'));
+        return next(new Error({message: 'permission denied', reason: 'you do not have access to the following permissions: [save]'}));
       }
     } else {
       return next();
@@ -43,7 +43,7 @@ module.exports = function(schema) {
         //check to see if the group has permission to remove a document
         return next();
       } else {
-        return next(new Error('permission denied'));
+        return next(new Error({message: 'permission denied', reason: 'you do not have access to the following permissions: [remove]'}));
       }
     } else {
       return next();
@@ -73,7 +73,7 @@ module.exports = function(schema) {
       var discrepancies = _.difference(Object.keys(vm._conditions), Object.keys(sanitizedFind));
       if (discrepancies[0]) {
         //if a group is searching by a field they do not have access to, return an error
-        return next(new Error('permission denied'));
+        return next(new Error({message: 'permission denied', reason: 'you do not have access to the following fields: [' + discrepancies.toString() + ']'}));
       } else {
         vm._fields = sanitizedFind;
         return next();
@@ -89,7 +89,7 @@ module.exports = function(schema) {
     var authorizedReturnFields = [];
     if (vm.options && vm.options.authLevel) {
       if (vm.options.upsert && !vm.schema.permissions[vm.options.authLevel].save) {
-        return next(new Error('permission denied'));
+        return next(new Error({message: 'permission denied', reason: 'you do not have access to the following permissions: [save]'}));
       }
       if (vm.schema.permissions[vm.options.authLevel] && vm.schema.permissions[vm.options.authLevel].write) {
         authorizedFields = authorizedFields.concat(vm.schema.permissions[vm.options.authLevel].write);
@@ -106,7 +106,7 @@ module.exports = function(schema) {
       var discrepancies = _.difference(Object.keys(vm._update), Object.keys(sanitizedUpdate));
       if (discrepancies[0]) {
         //if a group is searching by a field they do not have access to, return an error
-        return next(new Error('permission denied'));
+        return next(new Error({message: 'permission denied', reason: 'you do not have access to the following fields: [' + discrepancies.toString() + ']'}));
       } else {
 
         //Detect which fields can be returned if 'new: true' is set
