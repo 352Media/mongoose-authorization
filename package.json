@@ -1,6 +1,6 @@
 {
   "name": "mongoose-authorization",
-  "version": "0.0.4",
+  "version": "0.0.5",
   "description": "Data level authorization for Mongoose",
   "main": "index.js",
   "scripts": {
