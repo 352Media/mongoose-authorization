@@ -89,7 +89,7 @@ In the example above we extended the **userSchema** by adding a *permissions* ob
 The permissions object consists or properties that represent your authorization levels (or groups). For each group, there are 4 permissions you can configure.
 * `save` (create) - Boolean
 * `remove` - Boolean
-* `update` - [array of fields] *NOTE: if `upsert: true`, the group will need to have `save` permissions too*
+* `write` - [array of fields] *NOTE: if `upsert: true`, the group will need to have `save` permissions too*
 * `read` (find) - [array of fields]
 
 You can also specify a `defaults` group, which represents permissions that are available to all groups.
@@ -99,6 +99,8 @@ You can also specify a `defaults` group, which represents permissions that are a
 ###### *NOTE: If you do not add the authLevel option to your request, the plugin will not attempt to authorize it. This makes it possible for you to handle requests that may not be initiated by a user (eg. system call, batch job, etc.)*
 
 ***example update***
+
+You can also specify an array of authentication levels. This would merge the settings of each auth level.
 
 ```
 users.update({user_id: userUpdate.user_id}, userUpdate, {
