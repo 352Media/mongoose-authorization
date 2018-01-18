@@ -22,18 +22,20 @@ module.exports = function (schema) {
         update(this, next);
     });
 
+    schema.query.setAuthLevel = function(authLevel) {
+        this.options.authLevel = authLevel;
+        return this;
+    };
+
     function hasPermission(vm, action) {
-        if (!vm.schema.permissions[vm.options.authLevel]) {
-            return false;
-        }
         var authLevel = vm.options.authLevel;
 
         if (Array.isArray(authLevel)) {
             return authLevel.filter(function (level) {
-                return !!vm.schema.permissions[level][action];
+                return vm.schema.permissions[level] && !!vm.schema.permissions[level][action];
             }).length > 0;
         } else {
-            return vm.schema.permissions[authLevel][action];
+            return vm.schema.permissions[authLevel] && vm.schema.permissions[authLevel][action];
         }
     }
 
@@ -92,7 +94,7 @@ module.exports = function (schema) {
         var vm = schema;
         var authorizedFields = [];
         if (authOptionPresent(vm)) {
-            if (vm.schema.permissions[vm.options.authLevel] && vm.schema.permissions[vm.options.authLevel].read) {
+            if (hasPermission(vm, 'read')) {
                 //check to see if the group has any read permissions and add to the authorizedFields array
                 authorizedFields = authorizedFields.concat(getAuthorizedFields(vm, 'read'));
             }
@@ -136,7 +138,7 @@ module.exports = function (schema) {
                     reason: 'you do not have access to the following permissions: [save]'
                 });
             }
-            if (vm.schema.permissions[vm.options.authLevel] && vm.schema.permissions[vm.options.authLevel].write) {
+            if (hasPermission(vm, 'write')) {
                 //check to see if group has any write permissions and add to the authorizedFields array
                 authorizedFields = authorizedFields.concat(getAuthorizedFields(vm, 'write'));
             }
@@ -162,7 +164,7 @@ module.exports = function (schema) {
             } else {
 
                 //Detect which fields can be returned if 'new: true' is set
-                if (vm.schema.permissions[vm.options.authLevel] && vm.schema.permissions[vm.options.authLevel].read) {
+                if (hasPermission(vm, 'read')) {
 
                     //check to see if the group has any read permissions and add to the authorizedFields array
                     authorizedReturnFields = authorizedReturnFields.concat(getAuthorizedFields(vm, 'read'));

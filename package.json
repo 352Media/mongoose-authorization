@@ -4,7 +4,7 @@
   "description": "Data level authorization for Mongoose",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "nodeunit test/*.test.js"
   },
   "repository": {
     "type": "git",
@@ -33,5 +33,15 @@
   "homepage": "https://github.com/352Media/mongoose-authorization#readme",
   "dependencies": {
     "lodash": "^3.10.1"
+  },
+  "peerDependencies": {
+    "mongoose": "^4.5.0"
+  },
+  "devDependencies": {
+    "async": "^2.6.0",
+    "mongodb": "^3.0.1",
+    "mongoose": "^4.13.9",
+    "nodeunit": "^0.11.2",
+    "uuid": "^3.2.1"
   }
 }
