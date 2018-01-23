@@ -1,6 +1,6 @@
 # mongoose-authorization
 
-[![Build Status](https://travis-ci.org/xChrisPx/mongoose-authorization.svg?branch=dev)](https://travis-ci.org/xChrisPx/mongoose-authorization)
+[![Build Status](https://travis-ci.org/352Media/mongoose-authorization.svg?branch=dev)](https://travis-ci.org/352Media/mongoose-authorization)
 
 This plugin allows you to define a custom authorization scheme on your mongoose models.
 
@@ -15,7 +15,7 @@ First you need to add your permissions to your schema.
 
 ###### *NOTE: It is important you do this before compiling your model*
 
-```
+```javascript
 'use strict';
 var mongoose = require('mongoose');
 var uuid = require('uuid');
