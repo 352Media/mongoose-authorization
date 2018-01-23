@@ -1,4 +1,7 @@
 # mongoose-authorization
+
+[![Build Status](https://travis-ci.org/xChrisPx/mongoose-authorization.svg?branch=dev)](https://travis-ci.org/xChrisPx/mongoose-authorization)
+
 This plugin allows you to define a custom authorization scheme on your mongoose models.
 
 `npm install -S mongoose-authorization`
@@ -102,7 +105,7 @@ You can also specify a `defaults` group, which represents permissions that are a
 
 You can also specify an array of authentication levels. This would merge the settings of each auth level.
 
-```
+```javascript
 users.update({user_id: userUpdate.user_id}, userUpdate, {
   authLevel: 'admin'
 }, function(err, doc) {
@@ -114,26 +117,25 @@ users.update({user_id: userUpdate.user_id}, userUpdate, {
 });
 ```
 
-***example findOneAndUpdate***
+***example findOneAndUpdate using the newer promise syntax***
 
 ###### *NOTE: the return document will be sanitized based on the group's permissions for `read`*
 
-```
-users.findOneAndUpdate({user_id: userUpdate.user_id}, userUpdate, {
-  authLevel: 'admin'
-}, function(err, doc) {
-  if (err) {
-    //handle error
-  } else {
+```javascript
+users.findOneAndUpdate({user_id: userUpdate.user_id}, userUpdate)
+.exec()
+.then(function(doc) {
     //success
-  }
-});
+})
+.catch(function(err) {
+    // handle error
+})
 ```
 
 
 ***example find***
 
-```
+```javascript
 users.find({user_id: userUpdate.user_id}, null, {
   authLevel: 'admin'
 }, function(err, doc) {
@@ -147,7 +149,7 @@ users.find({user_id: userUpdate.user_id}, null, {
 
 ***example findOne***
 
-```
+```javascript
 users.findOne({user_id: userUpdate.user_id}, null, {
   authLevel: 'admin'
 }, function(err, doc) {
@@ -163,7 +165,7 @@ users.findOne({user_id: userUpdate.user_id}, null, {
 
 ###### *NOTE: doc.remove is not supported yet*
 
-```
+```javascript
 users.findOneAndRemove({user_id: userUpdate.user_id}, {
   authLevel: 'admin'
 }, function(err) {
