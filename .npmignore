@@ -1,2 +1,4 @@
 test/
 README.md
+.gitignore
+.travis.yml

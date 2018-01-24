@@ -48,8 +48,10 @@ module.exports = function (schema) {
 
         if (Array.isArray(authLevel)) {
             return authLevel.reduce(function (acc, level) {
-                var fields = vm.schema.permissions[level][action] || [];
-                return acc.concat(fields)
+                if(vm.schema.permissions[level] && vm.schema.permissions[level][action]) {
+                    return acc.concat(vm.schema.permissions[level][action])
+                }
+                return acc.concat([])
             }, []);
         } else {
             return vm.schema.permissions[authLevel][action] || [];
