@@ -2,9 +2,9 @@
 
 var _ = require('lodash');
 
-module.exports = function (schema) {
-    schema.pre('save', function (next) {
-        save(this, next);
+module.exports = function (schema, pluginOptions) {
+    schema.pre('save', function (options, next) {
+        save(this, options, next);
     });
     schema.pre('findOneAndRemove', function (next) {
         remove(this, next);
@@ -14,6 +14,12 @@ module.exports = function (schema) {
     });
     schema.pre('findOne', function (next) {
         find(this, next);
+    });
+    schema.post('find', function (doc, next) {
+        findPost(this, doc, next);
+    });
+    schema.post('findOne', function (doc, next) {
+        findPost(this, doc, next);
     });
     schema.pre('update', function (next) {
         update(this, next);
@@ -27,42 +33,51 @@ module.exports = function (schema) {
         return this;
     };
 
-    function hasPermission(vm, action) {
-        var authLevel = vm.options.authLevel;
+    function hasPermission(authLevels, action) {
+        return !_.isEmpty(getAuthorizedFields(authLevels, action));
+    }
 
-        if (Array.isArray(authLevel)) {
-            return authLevel.filter(function (level) {
-                return vm.schema.permissions[level] && !!vm.schema.permissions[level][action];
-            }).length > 0;
-        } else {
-            return vm.schema.permissions[authLevel] && vm.schema.permissions[authLevel][action];
+    function resolveQueryAuthLevel(options, doc) {
+        return options && options.authLevel;
+    }
+
+    function resolveDocAuthLevel(options, doc) {
+        if (options && doc && typeof schema.getAuthLevel === 'function') {
+            return schema.getAuthLevel(options.authPayload, doc);
         }
     }
 
-    function authOptionPresent(vm) {
-        return vm.options && vm.options.authLevel;
+    function getAuthorizedFields(authLevels, action) {
+        var authLevels = _.castArray(authLevels);
+        authLevels.push('defaults');
+
+        return _.chain(authLevels)
+            .map(function(level) {
+                return schema.permissions[level] && schema.permissions[level][action];
+            })
+            .faltten()
+            .filter()  //some values might be falsey if the given authLevel didn't exist
+            .uniq()    //dropping duplicates
+            .value();
     }
 
-    function getAuthorizedFields(vm, action) {
-        var authLevel = vm.options.authLevel;
+    function authIsRequired(action) {
+        if (pluginOptions) {
+            if (_.isArray(pluginOptions.required)) {
+                return _.includes(pluginOptions.required, action);
+            }
 
-        if (Array.isArray(authLevel)) {
-            return authLevel.reduce(function (acc, level) {
-                if(vm.schema.permissions[level] && vm.schema.permissions[level][action]) {
-                    return acc.concat(vm.schema.permissions[level][action])
-                }
-                return acc.concat([])
-            }, []);
-        } else {
-            return vm.schema.permissions[authLevel][action] || [];
+            return !!pluginOptions.required;
         }
+
+        return false;
     }
 
-    function save(schema, next) {
-        var vm = schema;
-        if (authOptionPresent(vm)) {
-            if (hasPermission(vm, 'save')) {
-                //check to see if the group has permission to save a new document
+    function save(doc, options, next) {
+        var authLevel = resolveQueryAuthLevel(options) || resolveDocAuthLevel(options, doc);
+        if (authLevel) {
+            if (hasPermission(authLevel, 'save')) {
+                //check to see if the group has permission to save changes or create a new document
                 return next();
             } else {
                 return next({
@@ -70,15 +85,20 @@ module.exports = function (schema) {
                     reason: 'you do not have access to the following permissions: [save]'
                 });
             }
+        } else if (authIsRequired('save')) {
+            return next({
+                message: 'permission denied',
+                reason: 'you must specify an authLevel in order to [save]'
+            });
         } else {
             return next();
         }
     }
 
-    function remove(schema, next) {
-        var vm = schema;
-        if (authOptionPresent(vm)) {
-            if (hasPermission(vm, 'remove')) {
+    function remove(query, next) {
+        var authLevel = resolveQueryAuthLevel(query.options);
+        if (authLevel) {
+            if (hasPermission(authLevel, 'remove')) {
                 //check to see if the group has permission to remove a document
                 return next();
             } else {
@@ -87,23 +107,20 @@ module.exports = function (schema) {
                     reason: 'you do not have access to the following permissions: [remove]'
                 });
             }
+        } else if (authIsRequired('remove')) {
+            return next({
+                message: 'permission denied',
+                reason: 'you must specify an authLevel in order to [remove]'
+            });
         } else {
             return next();
         }
     }
 
-    function find(schema, next) {
-        var vm = schema;
-        var authorizedFields = [];
-        if (authOptionPresent(vm)) {
-            if (hasPermission(vm, 'read')) {
-                //check to see if the group has any read permissions and add to the authorizedFields array
-                authorizedFields = authorizedFields.concat(getAuthorizedFields(vm, 'read'));
-            }
-            if (vm.schema.permissions.defaults && vm.schema.permissions.defaults.read) {
-                //check to see if there are any default read permissions and add to the authorizedFields array
-                authorizedFields = authorizedFields.concat(vm.schema.permissions.defaults.read);
-            }
+    function find(query, next) {
+        var authLevel = resolveQueryAuthLevel(query.options);
+        if (authLevel) {
+            var authorizedFields = getAuthorizedFields(authLevel, 'read');
 
             //create a projection object for mongoose based on the authorizedFields array
             var sanitizedFind = {};
@@ -112,7 +129,7 @@ module.exports = function (schema) {
             });
 
             //Check to see if group has the permission to perform a find using the specified fields
-            var discrepancies = _.difference(Object.keys(vm._conditions), Object.keys(sanitizedFind));
+            var discrepancies = _.difference(Object.keys(query._conditions), Object.keys(sanitizedFind));
             if (discrepancies[0]) {
                 //if a group is searching by a field they do not have access to, return an error
                 return next({
@@ -120,7 +137,7 @@ module.exports = function (schema) {
                     reason: 'you do not have access to the following fields: [' + discrepancies.toString() + ']'
                 });
             } else {
-                vm._fields = sanitizedFind;
+                query._fields = sanitizedFind;
                 return next();
             }
         } else {
@@ -128,63 +145,80 @@ module.exports = function (schema) {
         }
     }
 
-    function update(schema, next) {
-        var vm = schema;
-        var authorizedFields = [];
+    function findPost(query, doc, next) {
+        var authLevel = resolveDocAuthLevel(query.options, doc);
+        var authLevelFromAnywhere = authLevel || resolveQueryAuthLevel(query.options);
+
+        if (authLevel) {
+            var authorizedFields = getAuthorizedFields(authLevel, 'read');
+
+            //Check to see if group has the permission to see the fields that came back
+            var discrepancies = _.difference(Object.keys(doc), authorizedFields);
+            if (!_.isEmpty(discrepancies)) {
+                //if a group is searching by a field they do not have access to, return an error
+                return next({
+                    message: 'permission denied',
+                    reason: 'you do not have access to the following fields: [' + discrepancies.toString() + ']'
+                });
+            }
+
+            return next();
+        } else if (authIsRequired('find') && !authLevelFromAnywhere) {
+            //Auth level for actions (or just find), there's no Query authLevel or Document auth Level
+            return next({
+                message: 'permission denied',
+                reason: 'you must specify an authLevel in order to [find]'
+            });
+        } else {
+            return next();
+        }
+    }
+
+    function update(query, next) {
+        var authLevel = resolveQueryAuthLevel(query.options);
         var authorizedReturnFields = [];
-        if (authOptionPresent(vm)) {
-            if (vm.options.upsert && !hasPermission(vm, 'save')) {
+        if (authLevel) {
+            if (query.options.upsert && !hasPermission(authLevel, 'save')) {
                 //check to see if 'upsert: true' option is set, then verify if group has save permission
                 return next({
                     message: 'permission denied',
                     reason: 'you do not have access to the following permissions: [save]'
                 });
             }
-            if (hasPermission(vm, 'write')) {
-                //check to see if group has any write permissions and add to the authorizedFields array
-                authorizedFields = authorizedFields.concat(getAuthorizedFields(vm, 'write'));
-            }
-            if (vm.schema.permissions.defaults && vm.schema.permissions.defaults.write) {
-                //check to see if there are any default write permissions and add to the authorizedFields array
-                authorizedFields = authorizedFields.concat(vm.schema.permissions.defaults.write);
-            }
+
+            var authorizedFields = getAuthorizedFields(authLevel, 'write');
 
             //create an update object that has been sanitized based on permissions
             var sanitizedUpdate = {};
             authorizedFields.forEach(function (field) {
-                sanitizedUpdate[field] = vm._update[field];
+                sanitizedUpdate[field] = query._update[field];
             });
 
             //check to see if the group is trying to update a field it does not have permission to
-            var discrepancies = _.difference(Object.keys(vm._update), Object.keys(sanitizedUpdate));
+            var discrepancies = _.difference(Object.keys(query._update), Object.keys(sanitizedUpdate));
             if (discrepancies[0]) {
                 //if a group is searching by a field they do not have access to, return an error
                 return next({
                     message: 'permission denied',
                     reason: 'you do not have access to the following fields: [' + discrepancies.toString() + ']'
                 });
-            } else {
-
-                //Detect which fields can be returned if 'new: true' is set
-                if (hasPermission(vm, 'read')) {
-
-                    //check to see if the group has any read permissions and add to the authorizedFields array
-                    authorizedReturnFields = authorizedReturnFields.concat(getAuthorizedFields(vm, 'read'));
-                }
-                if (vm.schema.permissions.defaults && vm.schema.permissions.defaults.read) {
-
-                    //check to see if there are any default read permissions and add to the authorizedFields array
-                    authorizedReturnFields = authorizedReturnFields.concat(vm.schema.permissions.defaults.read);
-                }
-
-                //create a sanitizedReturnFields object that will be used to return only the fields that a group has access to read
-                var sanitizedReturnFields = {};
-                authorizedReturnFields.forEach(function (field) {
-                    sanitizedReturnFields[field] = 1;
-                });
-                vm._fields = sanitizedReturnFields;
-                return next();
             }
+
+            //Detect which fields can be returned if 'new: true' is set
+            var authorizedReturnFields = getAuthorizedFields(authLevel, 'read');
+
+            //create a sanitizedReturnFields object that will be used to return only the fields that a group has access to read
+            var sanitizedReturnFields = {};
+            authorizedReturnFields.forEach(function (field) {
+                sanitizedReturnFields[field] = 1;
+            });
+            query._fields = sanitizedReturnFields;
+            return next();
+        } else if (authIsRequired('update')) {
+            return next({
+                message: 'permission denied',
+                reason: 'you must specify an authLevel in order to [update]'
+            });
         } else {
             return next();
         }

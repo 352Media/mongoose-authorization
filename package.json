@@ -32,7 +32,7 @@
   },
   "homepage": "https://github.com/352Media/mongoose-authorization#readme",
   "dependencies": {
-    "lodash": "^3.10.1"
+    "lodash": "^4.17.5"
   },
   "peerDependencies": {
     "mongoose": "^4.5.0"
