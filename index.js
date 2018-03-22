@@ -55,7 +55,7 @@ module.exports = function (schema, pluginOptions) {
             .map(function(level) {
                 return schema.permissions[level] && schema.permissions[level][action];
             })
-            .faltten()
+            .flatten()
             .filter()  //some values might be falsey if the given authLevel didn't exist
             .uniq()    //dropping duplicates
             .value();
@@ -196,7 +196,7 @@ module.exports = function (schema, pluginOptions) {
 
             //check to see if the group is trying to update a field it does not have permission to
             var discrepancies = _.difference(Object.keys(query._update), Object.keys(sanitizedUpdate));
-            if (discrepancies[0]) {
+            if (!_.isEmpty(discrepancies)) {
                 //if a group is searching by a field they do not have access to, return an error
                 return next({
                     message: 'permission denied',
