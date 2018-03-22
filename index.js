@@ -3,7 +3,7 @@
 var _ = require('lodash');
 
 module.exports = function (schema, pluginOptions) {
-    schema.pre('save', function (options, next) {
+    schema.pre('save', function (next, options) {
         save(this, options, next);
     });
     schema.pre('findOneAndRemove', function (next) {
