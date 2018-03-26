@@ -11,22 +11,23 @@ const PermissionDeniedError = require('./lib/PermissionDeniedError');
 module.exports = (schema) => {
   let authorizationEnabled = true;
 
-  function saveDoc(doc, options, next) {
+  function save(doc, options, next) {
     if (doc.isNew && !hasPermission(schema, options, 'create', doc)) {
       return next(new PermissionDeniedError('create'));
     }
 
-    // TODO make sure you can't update fields that are outside of your permissions
-    // probably need to check the isModified stuff
-    if (!hasPermission(schema, options, 'write')) {
-      return next(new PermissionDeniedError('write'));
+    const authorizedFields = getAuthorizedFields(schema, options, 'write', doc);
+    const modifiedPaths = doc.modifiedPaths();
+    const discrepancies = _.difference(modifiedPaths, authorizedFields);
+
+    if (discrepancies.length > 0) {
+      return next(new PermissionDeniedError('write', discrepancies));
     }
 
     return next();
   }
 
   function removeQuery(query, next) {
-    // TODO see if there's an option for returning the object and filter what goes back
     if (!hasPermission(schema, query.options, 'remove')) {
       return next(new PermissionDeniedError('remove'));
     }
@@ -42,45 +43,7 @@ module.exports = (schema) => {
     return next();
   }
 
-  // Make sure you are can only query on the fields you can see.
-  //
-  // Note: We don't mess with the selected fields at all here. Since you can specify fields
-  // exclusively, and mongoose could be set to return all the garbage that might be in the DB,
-  // we need to wait until the post hook (where we actually have the doc) so we can see what's
-  // actually in there and then filter.
-  function find(query, next) {
-    const authorizedFields = getAuthorizedFields(schema, query.options, 'read');
-
-    // If there are no authorized fields, there are two possibilities. (A) The provided authLevel
-    // can't see this table at all, or (B) the authLevel determination will happen in
-    // `Schema.getAuthLevel` once we have a document. Since we can't tell the difference, just
-    // let the query through for now and then know that it'll be cleaned up in the post hook.
-    if (getAuthorizedFields.length === 0) {
-      return next();
-    }
-    // TODO, should this whole function also run in the post hook? see above comment
-
-    // create a projection object for mongoose based on the authorizedFields array
-    const sanitizedFind = {};
-    authorizedFields.forEach((field) => {
-      sanitizedFind[field] = 1;
-    });
-
-    // Check to see if group has the permission to perform a find using the specified fields
-    // TODO, what if there are no conditions, but you have no authorized fields?
-    const discrepancies = _.difference(
-      Object.keys(query._conditions),
-      authorizedFields,
-    );
-    if (discrepancies.length > 0) {
-      // if a group is searching by a field they do not have access to, return an error
-      return next(new PermissionDeniedError('read', discrepancies));
-    }
-
-    return next();
-  }
-
-  function findPost(query, docs, next) {
+  function find(query, docs, next) {
     const docList = _.castArray(docs);
     const multi = docList.length;
 
@@ -93,7 +56,6 @@ module.exports = (schema) => {
 
       // Check to see if group has the permission to see the fields that came back. Fields
       // that don't will be removed.
-      // TODO, figure out how to handle lean and hydrated documents
       const realDoc = doc._doc ? doc._doc : doc;
       const discrepancies = _.difference(Object.keys(realDoc), authorizedFields);
       for (const field of discrepancies) {
@@ -155,8 +117,6 @@ module.exports = (schema) => {
     return next();
   }
 
-  // TODO maybe replace this with a hook on find that checks to see if the query involves removing
-  // stuff
   schema.pre('findOneAndRemove', function preFindOneAndRemove(next) {
     if (!authorizationEnabled) { return next(); }
     return removeQuery(this, next);
@@ -169,23 +129,15 @@ module.exports = (schema) => {
   });
   schema.pre('save', function preSave(next, options) {
     if (!authorizationEnabled) { return next(); }
-    return saveDoc(this, options, next);
-  });
-  schema.pre('find', function preFind(next) {
-    if (!authorizationEnabled) { return next(); }
-    return find(this, next);
-  });
-  schema.pre('findOne', function preFindOne(next) {
-    if (!authorizationEnabled) { return next(); }
-    return find(this, next);
+    return save(this, options, next);
   });
   schema.post('find', function postFind(doc, next) {
     if (!authorizationEnabled) { return next(); }
-    return findPost(this, doc, next);
+    return find(this, doc, next);
   });
   schema.post('findOne', function postFindOne(doc, next) {
     if (!authorizationEnabled) { return next(); }
-    return findPost(this, doc, next);
+    return find(this, doc, next);
   });
   schema.pre('update', function preUpdate(next) {
     if (!authorizationEnabled) { return next(); }
