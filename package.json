@@ -1,10 +1,12 @@
 {
   "name": "mongoose-authorization",
-  "version": "0.1.1",
+  "version": "1.0.0",
   "description": "Data level authorization for Mongoose",
   "main": "index.js",
   "scripts": {
-    "test": "nodeunit test/*.test.js"
+    "pretest": "mongodb-runner start",
+    "test": "nodeunit test/*.test.js",
+    "posttest": "mongodb-runner stop"
   },
   "repository": {
     "type": "git",
@@ -39,9 +41,12 @@
   },
   "devDependencies": {
     "async": "^2.6.0",
+    "eslint": "4.19.1",
+    "eslint-config-airbnb-base": "12.1.0",
+    "eslint-plugin-import": "2.9.0",
     "mongodb": "^3.0.1",
+    "mongodb-runner": "3.6.1",
     "mongoose": "^4.13.9",
-    "nodeunit": "^0.11.2",
-    "uuid": "^3.2.1"
+    "nodeunit": "^0.11.2"
   }
 }
