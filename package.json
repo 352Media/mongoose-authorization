@@ -1,6 +1,7 @@
 {
   "name": "mongoose-authorization",
   "version": "1.0.0",
+  "engines" : { "node" : ">=8.1.2" },
   "description": "Data level authorization for Mongoose",
   "main": "index.js",
   "scripts": {
