@@ -164,7 +164,8 @@ module.exports = {
     );
     test.deepEqual(
       getAuthorizedFields(goodSchema, { authLevel: 'hasVirtuals' }, 'read').sort(),
-      ['_id', 'name'].sort(),
+      ['_id', 'name', 'virtual_name'].sort(),
+      'virtuals should be included in the list of fields'
     );
 
     test.done();
