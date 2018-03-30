@@ -48,25 +48,36 @@ module.exports = (schema) => {
     const multi = docList.length;
 
     const processedResult = _.map(docList, (doc) => {
+      if (!doc) { return doc; }
+
       const authorizedFields = getAuthorizedFields(schema, query.options, 'read', doc);
 
-      if (getAuthorizedFields.length === 0) {
-        return;
-      }
+      if (getAuthorizedFields.length === 0) { return; }
 
       // Check to see if group has the permission to see the fields that came back. Fields
       // that don't will be removed.
-      const realDoc = doc._doc ? doc._doc : doc;
-      const discrepancies = _.difference(Object.keys(realDoc), authorizedFields);
-      for (const field of discrepancies) {
-        delete realDoc[field];
+      const authorizedFieldsSet = new Set(authorizedFields);
+      const innerDoc = doc._doc || doc;
+      for (const pathName of _.keys(innerDoc)) {
+        if (!authorizedFieldsSet.has(pathName)) {
+          delete innerDoc[pathName];
+        }
       }
 
-      if (_.isEmpty(realDoc)) {
-        return;
+      // Special work. Wipe out the getter for the virtuals that have been set on the
+      // schema that are not authorized to come back
+      for (const pathName of _.keys(schema.virtuals)) {
+        if (!authorizedFieldsSet.has(pathName)) {
+          // These virtuals are set with `Object.defineProperty`. You cannot overwrite them
+          // by directly setting the value to undefined, or by deleting the key in the
+          // document. This is potentially slow with lots of virtuals
+          Object.defineProperty(doc, pathName, {
+            value: undefined
+          });
+        }
       }
 
-      return doc;
+      return _.isEmpty(innerDoc) ? undefined : doc;
     });
 
     const filteredResult = _.filter(processedResult);
