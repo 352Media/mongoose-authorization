@@ -68,7 +68,7 @@ userSchema.permissions = {
   admin: {
     read: ['status'],
     write: ['status'],
-    save: true
+    create: true
   },
   owner: {
     read: ['status'],
