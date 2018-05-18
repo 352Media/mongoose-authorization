@@ -7,9 +7,7 @@
   "description": "Data level authorization for Mongoose",
   "main": "index.js",
   "scripts": {
-    "pretest": "mongodb-runner start",
     "test": "nodeunit test/*.test.js",
-    "posttest": "mongodb-runner stop"
   },
   "repository": {
     "type": "git",
