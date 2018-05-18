@@ -43,12 +43,9 @@ module.exports = (schema) => {
   }
 
   function find(query, docs, next) {
-    const docList = _.castArray(docs);
-    const multi = _.isArrayLike(docList);
-
     const sanitizedResult = sanitizeDocumentList(schema, query.options, docs);
 
-    return next(null, multi ? sanitizedResult : sanitizedResult[0]);
+    return next(null, sanitizedResult);
   }
 
   function update(query, next) {

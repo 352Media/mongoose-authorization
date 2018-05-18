@@ -224,6 +224,18 @@ module.exports = {
       }
       test.done();
     },
+    'findOne': async (test) => {
+      try {
+        const user = await User.findOne({ email: 'foo@example.com' })
+          .setAuthLevel('admin')
+          .exec();
+        test.ok(user);
+        test.equal(user.status, 'active');
+      } catch (err) {
+        test.ifError(err);
+      }
+      test.done();
+    },
     'with permissions option: true': async (test) => {
       const user = await User.findOne()
         .setOptions({ authLevel: 'admin', permissions: true })
