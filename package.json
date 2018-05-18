@@ -7,7 +7,7 @@
   "description": "Data level authorization for Mongoose",
   "main": "index.js",
   "scripts": {
-    "test": "nodeunit test/*.test.js",
+    "test": "nodeunit test/*.test.js"
   },
   "repository": {
     "type": "git",
