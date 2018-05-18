@@ -136,6 +136,31 @@ Car.find({}, null, { authPayload: { companyName: 'Toyota' } }).exec(...);
 myCar.save({ authPayload: { companyName: 'Honda' } });
 ```
 
+You can also have the permissions for a specific document injected into the document when returned from a find query using the `permissions` option on the query. The permissions will be inserted into the object using the key `permissions` unless you specify the desired key name as the permissions option.
+
+```javascript
+const user = await User.find().setOptions({ authLevel: 'admin': permissions: true }).exec();
+
+console.log(user.permissions);
+// Outputs:
+// {
+//   read: [...],
+//   write: [...],
+//   remove: [boolean]
+// }
+
+// OR
+const user = await User.find().setOptions({ authLevel: 'admin': permissions: 'foo' }).exec();
+
+console.log(user.foo);
+// Outputs:
+// {
+//   read: [...],
+//   write: [...],
+//   remove: [boolean]
+// }
+```
+
 #### Example Uses
 
 ###### NOTE: If no authLevel is able to be determined, permission to perform the action will be denied. If you would like to circumvent authorization, pass `false` as the authLevel (e.g. `myModel.find().setAuhtLevel(false).exec();`, which will disable authorization for that specific query).

@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const lodash = require('lodash');
 const User = require('./user.schema');
 const PermissionDeniedError = require('../lib/PermissionDeniedError');
 
@@ -13,6 +12,10 @@ const userSeed1 = {
   last_login_date: new Date(),
   login_attempts: 1,
   avatar: 'http://someurl.com',
+  primary_location: {
+    lat: 5,
+    lon: 4,
+  },
 };
 
 const userSeed2 = {
@@ -25,9 +28,9 @@ const userSeed2 = {
   avatar: 'http://example2.com',
 };
 
-let userVals1, userVals2, userDocs;
+let userDocs;
 
-const permissions = User.schema.permissions;
+const { permissions } = User.schema;
 
 const levelPermissions = Object.assign({}, permissions);
 
@@ -36,7 +39,9 @@ delete levelPermissions.defaults;
 mongoose.Promise = global.Promise;
 mongoose.connect(dbUri, { useMongoClient: true });
 mongoose.connection.on('error', (err) => {
+  // eslint-disable-next-line no-console
   console.error(`Failed to connect to mongo at ${dbUri}`);
+  // eslint-disable-next-line no-console
   console.error(`MongoDB connection error: ${err}`);
   throw err;
 });
@@ -47,38 +52,33 @@ module.exports = {
       // conveniently, these static methods go around our authorization hooks
       await User.remove({});
 
-      User.disableAuthorization();
-      const users = await User.create([userSeed1, userSeed2]);
-      User.enableAuthorization();
-      userVals1 = users[0].toJSON();
-      userVals2 = users[1].toJSON();
-      userDocs = users;
+      const user1 = await new User(userSeed1).save({ authLevel: false });
+      const user2 = await new User(userSeed2).save({ authLevel: false });
+      user1.best_friend = user2;
+      await user1.save({ authLevel: false });
+      userDocs = [user1, user2];
       callback();
     } catch (err) {
       callback(err);
     }
   },
-  'Global Disable': {
-    setUp: (callback) => {
-      User.disableAuthorization();
-      callback();
-    },
+  Disable: {
     find: async (test) => {
-      const users = await User.find().exec();
+      const users = await User.find().setAuthLevel(false).exec();
       test.ok(users);
       test.equal(users.length, 2);
       test.ok(users[0]);
       test.ok(users[0]._id);
       test.equals(
         users[0].beyond_permissions,
-        'some value'
+        'some value',
       );
       test.equal(users[0].full_name, 'Archer Sterling');
       test.done();
     },
     remove: async (test) => {
       try {
-        await userDocs[0].remove();
+        await userDocs[0].remove({ authLevel: false });
       } catch (err) {
         test.ifError(err);
       }
@@ -91,7 +91,7 @@ module.exports = {
       user.email = newEmail;
 
       try {
-        await user.save();
+        await user.save({ authLevel: false });
       } catch (err) {
         test.ifError(err);
       }
@@ -100,13 +100,26 @@ module.exports = {
       test.equal(user.email, newEmail);
       test.done();
     },
-    'create': (test) => {
-      // TODO fill in
+    create: async (test) => {
+      try {
+        const testCreation = new User({
+          email: 'foobar@example.com',
+          first_name: 'First',
+          last_name: 'Lastingly',
+          password: 'idk',
+          last_login_date: new Date(),
+          login_attempts: 67,
+          avatar: 'http://someurl.com',
+          primary_location: {
+            lat: 5,
+            lon: 4,
+          },
+        });
+        await testCreation.save({ authLevel: false });
+      } catch (err) {
+        test.ifError(err);
+      }
       test.done();
-    },
-    tearDown : (callback) => {
-      User.enableAuthorization();
-      callback();
     },
   },
   'Removing Documents': {
@@ -115,7 +128,7 @@ module.exports = {
         test.expect(1);
         try {
           await userDocs[0].remove();
-        } catch(err) {
+        } catch (err) {
           test.ok(err instanceof PermissionDeniedError);
         }
 
@@ -124,8 +137,8 @@ module.exports = {
       'explicit no': async (test) => {
         test.expect(1);
         try {
-          await userDocs[0].remove({ authLevel: 'admin'});
-        } catch(err) {
+          await userDocs[0].remove({ authLevel: 'admin' });
+        } catch (err) {
           test.ok(err instanceof PermissionDeniedError);
         }
 
@@ -135,22 +148,20 @@ module.exports = {
         try {
           const user = await userDocs[0].remove({ authLevel: 'owner' });
           test.ok(user);
-          const deletedUser = await User.findOne({_id: user.id}).exec();
+          const deletedUser = await User.findOne({ _id: user.id }).exec();
           test.ok(!deletedUser);
-        } catch(err) {
+        } catch (err) {
           test.ifError(err);
         }
         test.done();
       },
     },
-    'findOneAndRemove': {
-
-    },
-    'Model.find().remove()': {
+    findOneAndRemove: {
 
     },
   },
-  'Finding Docs': {
+  'Creating Documents': {},
+  'Finding Documents': {
     'Basic Field Filtering': async (test) => {
       try {
         const users = await User.find().exec();
@@ -213,55 +224,244 @@ module.exports = {
       }
       test.done();
     },
+    'with permissions option: true': async (test) => {
+      const user = await User.findOne()
+        .setOptions({ authLevel: 'admin', permissions: true })
+        .exec();
+      test.ok(user);
+      test.deepEqual(
+        user.permissions.read.sort(),
+        ['_id', 'email', 'first_name', 'last_name', 'avatar', 'status', 'best_friend'].sort(),
+      );
+      test.deepEqual(
+        user.permissions.write.sort(),
+        ['status', 'primary_location'].sort(),
+      );
+      test.strictEqual(
+        user.permissions.remove,
+        false,
+      );
+      test.done();
+    },
+    'with permissions option: named': async (test) => {
+      const user = await User.findOne()
+        .setOptions({ authLevel: 'admin', permissions: 'perms' })
+        .exec();
+      test.ok(user);
+      test.deepEqual(
+        user.perms.read.sort(),
+        ['_id', 'email', 'first_name', 'last_name', 'avatar', 'status', 'best_friend'].sort(),
+      );
+      test.deepEqual(
+        user.perms.write.sort(),
+        ['status', 'primary_location'].sort(),
+      );
+      test.strictEqual(
+        user.perms.remove,
+        false,
+      );
+      test.done();
+    },
+    'with permissions option (lean)': async (test) => {
+      const user = await User.findOne()
+        .setOptions({ authLevel: 'admin', permissions: true })
+        .lean()
+        .exec();
+      test.ok(user);
+      test.deepEqual(
+        user.permissions.read.sort(),
+        ['_id', 'email', 'first_name', 'last_name', 'avatar', 'status', 'best_friend'].sort(),
+      );
+      test.deepEqual(
+        user.permissions.write.sort(),
+        ['status', 'primary_location'].sort(),
+      );
+      test.strictEqual(
+        user.permissions.remove,
+        false,
+      );
+      test.done();
+    },
   },
-  'sub schemas': {},
-/*
-  'should only return projection for authLevel merged with defaults': function (test) {
-    function testAuthLevel(fields, level, callback) {
-      fields = fields.read.concat(permissions.defaults.read);
-      User.findOne({}, null, { authLevel: level })
-        .exec()
-        .then((user) => {
-          test.ok(user);
+  'Saving Documents': {
+    'no permissions passed': async (test) => {
+      test.expect(1);
+      userDocs[0].status = 'disabled';
+      try {
+        await userDocs[0].save();
+      } catch (err) {
+        test.equals(err.name, 'PermissionDenied');
+      }
 
-          fields.forEach((field) => {
-            test.deepEqual(user[field], userValues[field]);
-          });
+      test.done();
+    },
+    'wrong permissions passed': async (test) => {
+      test.expect(1);
+      userDocs[0].status = 'disabled';
+      try {
+        await userDocs[0].save({ authLevel: 'owner' });
+      } catch (err) {
+        test.equals(err.name, 'PermissionDenied');
+      }
 
-          const returnedKeys = Object.keys(user.toJSON());
-          test.equal(lodash.difference(returnedKeys, fields).length, 0);
-
-          callback();
-        }).catch(callback);
-    }
-
-    async.forEachOf(levelPermissions, testAuthLevel, test.done);
+      test.done();
+    },
+    'correct permissions passed': async (test) => {
+      test.expect(1);
+      userDocs[0].status = 'disabled';
+      await userDocs[0].save({ authLevel: 'admin' });
+      test.equals(userDocs[0].status, 'disabled');
+      test.done();
+    },
   },
+  'Updating Documents': {
+    'no permissions passed': async (test) => {
+      test.expect(1);
+      try {
+        await User.update(
+          { _id: userDocs[0]._id },
+          { status: 'disabled' },
+        );
+      } catch (err) {
+        test.equals(err.name, 'PermissionDenied');
+      }
 
-  'should work with query extension function': function (test) {
-    function testAuthLevel(fields, level, callback) {
-      fields = fields.read.concat(permissions.defaults.read);
-      User.findOne({})
-        .setAuthLevel(level)
-        .exec()
-        .then((user) => {
-          test.ok(user);
+      test.done();
+    },
+    'wrong permissions passed': async (test) => {
+      test.expect(1);
+      try {
+        await User.update(
+          { _id: userDocs[0]._id },
+          { status: 'disabled' },
+          { authLevel: 'owner' },
+        );
+      } catch (err) {
+        test.equals(err.name, 'PermissionDenied');
+      }
+      test.done();
+    },
+    'correct permission passed': async (test) => {
+      const updateStatus = await User.update(
+        { _id: userDocs[0]._id },
+        { status: 'disabled' },
+        { authLevel: 'admin' },
+      );
+      test.ok(updateStatus);
+      test.equals(updateStatus.n, 1);
+      test.done();
+    },
+    findOneAndUpdate: async (test) => {
+      const user = await User.findOneAndUpdate(
+        { _id: userDocs[0]._id },
+        { status: 'disabled' },
+        { authLevel: 'admin' },
+      );
+      test.equals(user.status, 'active');
+      test.deepEqual(user.toJSON(), {
+        _id: user._id,
+        email: 'foo@example.com',
+        first_name: 'Archer',
+        last_name: 'Sterling',
+        avatar: 'http://someurl.com',
+        best_friend: user.best_friend,
+        status: 'active',
+      });
 
-          fields.forEach((field) => {
-            test.deepEqual(user[field], userValues[field]);
-          });
+      test.done();
+    },
+    'findOneAndUpdate with `new` option': async (test) => {
+      const user = await User.findOneAndUpdate(
+        { _id: userDocs[0]._id },
+        { status: 'disabled' },
+        { new: true, authLevel: 'admin' },
+      );
+      test.equals(user.status, 'disabled');
+      test.done();
+    },
+  },
+  'Sub Schemas': {
+    create: {
+      allowed: async (test) => {
+        const user = userDocs[1];
+        user.primary_location = { lat: 2, lon: 2 };
+        try {
+          await user.save({ authLevel: 'admin' });
+        } catch (err) {
+          test.ifError(err);
+        }
+        test.done();
+      },
+      'not allowed': async (test) => {
+        test.expect(1);
+        const user = userDocs[1];
+        user.primary_location = { lat: 2, lon: 2 };
+        try {
+          await user.save({ authLevel: 'owner' });
+        } catch (err) {
+          test.ok(err instanceof PermissionDeniedError);
+        }
+        test.done();
+      },
+    },
+  },
+  'Population Propagation': {
+    'permissions only at top level': async (test) => {
+      const users = await User
+        .find({ email: 'foo@example.com' })
+        .setAuthLevel('admin')
+        .populate('best_friend')
+        .exec();
 
-          const returnedKeys = Object.keys(user.toJSON());
-          test.equal(lodash.difference(returnedKeys, fields).length, 0);
+      // make sure permission are applied to top level, but don't trickle down
+      test.deepEqual(users[0].toJSON(), {
+        _id: users[0]._id,
+        email: 'foo@example.com',
+        first_name: 'Archer',
+        last_name: 'Sterling',
+        avatar: 'http://someurl.com',
+        status: 'active',
+        best_friend: {
+          _id: users[0].best_friend._id,
+          email: 'bar@example.com',
+          first_name: 'Rusty',
+          last_name: 'Shakleford',
+          avatar: 'http://example2.com',
+        },
+      });
 
-          callback();
+      test.done();
+    },
+    'permissions explicitly passed down': async (test) => {
+      const users = await User
+        .find({ email: 'foo@example.com' })
+        .setAuthLevel('admin')
+        .populate({
+          path: 'best_friend',
+          options: { authLevel: 'admin' },
         })
-        .catch(callback);
-    }
+        .exec();
 
-    async.forEachOf(levelPermissions, testAuthLevel, test.done);
+      // make sure permission are applied to top level, but don't trickle down
+      test.deepEqual(users[0].toJSON(), {
+        _id: users[0]._id,
+        email: 'foo@example.com',
+        first_name: 'Archer',
+        last_name: 'Sterling',
+        avatar: 'http://someurl.com',
+        status: 'active',
+        best_friend: {
+          _id: users[0].best_friend._id,
+          email: 'bar@example.com',
+          first_name: 'Rusty',
+          last_name: 'Shakleford',
+          avatar: 'http://example2.com',
+          status: 'active',
+        },
+      });
+
+      test.done();
+    },
   },
-*/
-
 };
 

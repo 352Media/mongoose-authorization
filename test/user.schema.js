@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const authorizationPlugin = require('../');
+const locationSchema = require('./location.schema');
 
 const userSchema = new mongoose.Schema({
   email: {
@@ -30,13 +31,19 @@ const userSchema = new mongoose.Schema({
     required: true,
     default: 'active',
   },
+  best_friend: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'newusers',
+  },
+  primary_location: locationSchema,
+  all_locations: [locationSchema],
   beyond_permissions: {
     type: String,
     default: 'some value',
   },
 });
 
-userSchema.virtual('full_name').get(function () {
+userSchema.virtual('full_name').get(function getFullName() {
   return `${this.first_name} ${this.last_name}`;
 });
 
@@ -48,8 +55,8 @@ userSchema.permissions = {
     read: ['_id', 'email', 'first_name', 'last_name', 'avatar'],
   },
   admin: {
-    read: ['status'],
-    write: ['status'],
+    read: ['status', 'best_friend'],
+    write: ['status', 'primary_location'],
     create: true,
   },
   owner: {

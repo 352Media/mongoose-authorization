@@ -1,7 +1,9 @@
 {
   "name": "mongoose-authorization",
   "version": "0.1.1",
-  "engines" : { "node" : ">=8.2.1" },
+  "engines": {
+    "node": ">=8.2.1"
+  },
   "description": "Data level authorization for Mongoose",
   "main": "index.js",
   "scripts": {
@@ -41,7 +43,6 @@
     "mongoose": "^4.5.0"
   },
   "devDependencies": {
-    "async": "^2.6.0",
     "eslint": "4.19.1",
     "eslint-config-airbnb-base": "12.1.0",
     "eslint-plugin-import": "2.9.0",

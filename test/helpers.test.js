@@ -4,6 +4,7 @@ const {
   resolveAuthLevel,
   getAuthorizedFields,
   hasPermission,
+  getUpdatePaths,
 } = require('../lib/helpers');
 
 // Set up a bunch of schemas for testing. We're not going to connect to the database
@@ -35,10 +36,10 @@ goodSchema.permissions = {
     read: ['virtual_name'],
   },
 };
-goodSchema.virtual('virtual_name').get(function () {
+goodSchema.virtual('virtual_name').get(function getVirtualName() {
   return `virtual${this.name}`;
 });
-goodSchema.getAuthLevel = function (payload, doc) {
+goodSchema.getAuthLevel = function getAuthLevel(payload) {
   return payload && payload.authLevel;
 };
 
@@ -59,7 +60,7 @@ const queryOpt = { authLevel: 'admin' };
 
 module.exports = {
   resolveAuthLevel: {
-    'single in query options': function (test) {
+    'single in query options': (test) => {
       // Single Auth level in query options
       test.deepEqual(
         resolveAuthLevel(goodSchema, queryOpt),
@@ -68,7 +69,7 @@ module.exports = {
 
       test.done();
     },
-    'unknown in query options': function (test) {
+    'unknown in query options': (test) => {
       test.deepEqual(
         resolveAuthLevel(goodSchema, { authLevel: 'foobar' }),
         ['defaults'],
@@ -87,14 +88,14 @@ module.exports = {
       );
       test.done();
     },
-    'bad schema': function (test) {
+    'bad schema': (test) => {
       test.deepEqual(
         resolveAuthLevel(emptySchema, { authLevel: 'admin' }),
         [],
       );
       test.done();
     },
-    'multiple in query options': function (test) {
+    'multiple in query options': (test) => {
       test.deepEqual(
         resolveAuthLevel(goodSchema, { authLevel: ['self', 'admin'] }),
         ['self', 'admin', 'defaults'],
@@ -109,7 +110,7 @@ module.exports = {
       );
       test.done();
     },
-    'from document getAuthLevel': function (test) {
+    'from document getAuthLevel': (test) => {
       test.deepEqual(
         resolveAuthLevel(goodSchema, {}, { foo: 1 }),
         ['defaults'],
@@ -165,7 +166,7 @@ module.exports = {
     test.deepEqual(
       getAuthorizedFields(goodSchema, { authLevel: 'hasVirtuals' }, 'read').sort(),
       ['_id', 'name', 'virtual_name'].sort(),
-      'virtuals should be included in the list of fields'
+      'virtuals should be included in the list of fields',
     );
 
     test.done();
@@ -195,6 +196,37 @@ module.exports = {
       hasPermission(goodSchema, { authLevel: 'admin' }, 'create'),
       true,
       'should return true when an AuthLevel says so, despite default',
+    );
+    test.done();
+  },
+  authIsDisabled(test) {
+    // TODO fill in
+    test.done();
+  },
+  embedPermissions(test) {
+    // TODO fill in
+    test.done();
+  },
+  sanitizeDocument(test) {
+    // TODO fill in
+    test.done();
+  },
+  sanitizeDocumentList(test) {
+    // TODO fill in
+    test.done();
+  },
+  getUpdatePaths(test) {
+    test.deepEqual(
+      getUpdatePaths({ $set: { foo: 1 } }).sort(),
+      ['foo'],
+    );
+    test.deepEqual(
+      getUpdatePaths({ $set: { foo: 1 }, $inc: { bar: 2 } }).sort(),
+      ['bar', 'foo'],
+    );
+    test.deepEqual(
+      getUpdatePaths({ foo: 1, bar: 2 }).sort(),
+      ['bar', 'foo'],
     );
     test.done();
   },

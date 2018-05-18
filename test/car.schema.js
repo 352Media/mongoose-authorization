@@ -39,7 +39,7 @@ carSchema.permissions = {
   },
 };
 
-carSchema.getAuthLevel = function (payload, doc) {
+carSchema.getAuthLevel = function getAuthLevel(payload, doc) {
   if (payload) {
     if (doc && payload.companyName === doc.make) {
       return 'maker';
@@ -47,6 +47,7 @@ carSchema.getAuthLevel = function (payload, doc) {
       return 'dealer';
     }
   }
+  return [];
 };
 
 carSchema.plugin(mongooseAuthorization);

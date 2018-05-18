@@ -2,15 +2,14 @@ const _ = require('lodash');
 const {
   getAuthorizedFields,
   hasPermission,
+  authIsDisabled,
+  sanitizeDocumentList,
+  getUpdatePaths,
 } = require('./lib/helpers');
 
 const PermissionDeniedError = require('./lib/PermissionDeniedError');
 
-// TODO implement a pluginOption for putting the permissions into the results object for
-// find queries
 module.exports = (schema) => {
-  let authorizationEnabled = true;
-
   function save(doc, options, next) {
     if (doc.isNew && !hasPermission(schema, options, 'create', doc)) {
       return next(new PermissionDeniedError('create'));
@@ -45,44 +44,11 @@ module.exports = (schema) => {
 
   function find(query, docs, next) {
     const docList = _.castArray(docs);
-    const multi = docList.length;
+    const multi = _.isArrayLike(docList);
 
-    const processedResult = _.map(docList, (doc) => {
-      if (!doc) { return doc; }
+    const sanitizedResult = sanitizeDocumentList(schema, query.options, docs);
 
-      const authorizedFields = getAuthorizedFields(schema, query.options, 'read', doc);
-
-      if (getAuthorizedFields.length === 0) { return; }
-
-      // Check to see if group has the permission to see the fields that came back. Fields
-      // that don't will be removed.
-      const authorizedFieldsSet = new Set(authorizedFields);
-      const innerDoc = doc._doc || doc;
-      for (const pathName of _.keys(innerDoc)) {
-        if (!authorizedFieldsSet.has(pathName)) {
-          delete innerDoc[pathName];
-        }
-      }
-
-      // Special work. Wipe out the getter for the virtuals that have been set on the
-      // schema that are not authorized to come back
-      for (const pathName of _.keys(schema.virtuals)) {
-        if (!authorizedFieldsSet.has(pathName)) {
-          // These virtuals are set with `Object.defineProperty`. You cannot overwrite them
-          // by directly setting the value to undefined, or by deleting the key in the
-          // document. This is potentially slow with lots of virtuals
-          Object.defineProperty(doc, pathName, {
-            value: undefined
-          });
-        }
-      }
-
-      return _.isEmpty(innerDoc) ? undefined : doc;
-    });
-
-    const filteredResult = _.filter(processedResult);
-
-    return next(null, multi ? filteredResult : filteredResult[0]);
+    return next(null, multi ? sanitizedResult : sanitizedResult[0]);
   }
 
   function update(query, next) {
@@ -97,18 +63,15 @@ module.exports = (schema) => {
 
     const authorizedFields = getAuthorizedFields(schema, query.options, 'write');
 
-    // create an update object that has been sanitized based on permissions
-    const sanitizedUpdate = {};
-    authorizedFields.forEach((field) => {
-      sanitizedUpdate[field] = query._update[field];
-    });
-
     // check to see if the group is trying to update a field it does not have permission to
-    const discrepancies = _.difference(Object.keys(query._update), Object.keys(sanitizedUpdate));
+    const modifiedPaths = getUpdatePaths(query._update);
+    const discrepancies = _.difference(modifiedPaths, authorizedFields);
     if (discrepancies.length > 0) {
       return next(new PermissionDeniedError('write', discrepancies));
     }
-    query._update = sanitizedUpdate;
+
+    // TODO handle the overwrite option
+    // TODO handle Model.updateMany
 
     // TODO, see if this section works at all. Seems off that the `_fields` property is the
     // thing that determines what fields come back
@@ -118,44 +81,54 @@ module.exports = (schema) => {
     // create a sanitizedReturnFields object that will be used to return only the fields that a
     // group has access to read
     const sanitizedReturnFields = {};
-    for (const field of authorizedReturnFields) {
+    authorizedReturnFields.forEach((field) => {
       if (!query._fields || query._fields[field]) {
         sanitizedReturnFields[field] = 1;
       }
-    }
+    });
     query._fields = sanitizedReturnFields;
 
     return next();
   }
 
+  // Find paths with permissioned schemas and store those so deep checks can be done
+  // on the right paths at call time.
+  schema.pathsWithPermissionedSchemas = {};
+  schema.eachPath((path, schemaType) => {
+    const subSchema = schemaType.schema;
+    if (subSchema && subSchema.permissions) {
+      schema.pathsWithPermissionedSchemas[path] = subSchema;
+    }
+  });
+
   schema.pre('findOneAndRemove', function preFindOneAndRemove(next) {
-    if (!authorizationEnabled) { return next(); }
+    if (authIsDisabled(this.options)) { return next(); }
     return removeQuery(this, next);
   });
   // TODO, WTF, how to prevent someone from Model.find().remove().exec(); That doesn't
   // fire any remove hooks. Does it fire a find hook?
   schema.pre('remove', function preRemove(next, options) {
-    if (!authorizationEnabled) { return next(); }
+    if (authIsDisabled(options)) { return next(); }
     return removeDoc(this, options, next);
   });
   schema.pre('save', function preSave(next, options) {
-    if (!authorizationEnabled) { return next(); }
+    if (authIsDisabled(options)) { return next(); }
     return save(this, options, next);
   });
   schema.post('find', function postFind(doc, next) {
-    if (!authorizationEnabled) { return next(); }
+    if (authIsDisabled(this.options)) { return next(); }
     return find(this, doc, next);
   });
   schema.post('findOne', function postFindOne(doc, next) {
-    if (!authorizationEnabled) { return next(); }
+    if (authIsDisabled(this.options)) { return next(); }
     return find(this, doc, next);
   });
   schema.pre('update', function preUpdate(next) {
-    if (!authorizationEnabled) { return next(); }
+    if (authIsDisabled(this.options)) { return next(); }
     return update(this, next);
   });
   schema.pre('findOneAndUpdate', function preFindOneAndUpdate(next) {
-    if (!authorizationEnabled) { return next(); }
+    if (authIsDisabled(this.options)) { return next(); }
     return update(this, next);
   });
 
@@ -164,11 +137,7 @@ module.exports = (schema) => {
     return this;
   };
 
-  schema.static('disableAuthorization', () => {
-    authorizationEnabled = false;
-  });
-
-  schema.static('enableAuthorization', () => {
-    authorizationEnabled = true;
-  });
+  schema.statics.canCreate = function canCreate(options) {
+    return hasPermission(this.schema, options, 'create');
+  };
 };
