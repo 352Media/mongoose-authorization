@@ -53,6 +53,7 @@ module.exports = (schema) => {
 
   function update(query, next) {
     // If this is an upsert, you'll need the create permission
+    // TODO add some tests for the upset case
     if (
       query.options
       && query.options.upsert
@@ -73,8 +74,6 @@ module.exports = (schema) => {
     // TODO handle the overwrite option
     // TODO handle Model.updateMany
 
-    // TODO, see if this section works at all. Seems off that the `_fields` property is the
-    // thing that determines what fields come back
     // Detect which fields can be returned if 'new: true' is set
     const authorizedReturnFields = getAuthorizedFields(schema, query.options, 'read');
 
