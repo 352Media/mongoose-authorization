@@ -1,192 +1,139 @@
-'use strict';
+const _ = require('lodash');
+const {
+  getAuthorizedFields,
+  hasPermission,
+  authIsDisabled,
+  sanitizeDocumentList,
+  getUpdatePaths,
+} = require('./lib/helpers');
 
-var _ = require('lodash');
+const PermissionDeniedError = require('./lib/PermissionDeniedError');
 
-module.exports = function (schema) {
-    schema.pre('save', function (next) {
-        save(this, next);
+module.exports = (schema) => {
+  function save(doc, options, next) {
+    if (doc.isNew && !hasPermission(schema, options, 'create', doc)) {
+      return next(new PermissionDeniedError('create'));
+    }
+
+    const authorizedFields = getAuthorizedFields(schema, options, 'write', doc);
+    const modifiedPaths = doc.modifiedPaths();
+    const discrepancies = _.difference(modifiedPaths, authorizedFields);
+
+    if (discrepancies.length > 0) {
+      return next(new PermissionDeniedError('write', discrepancies));
+    }
+
+    return next();
+  }
+
+  function removeQuery(query, next) {
+    if (!hasPermission(schema, query.options, 'remove')) {
+      return next(new PermissionDeniedError('remove'));
+    }
+
+    return next();
+  }
+
+  function removeDoc(doc, options, next) {
+    if (!hasPermission(schema, options, 'remove', doc)) {
+      return next(new PermissionDeniedError('remove'));
+    }
+
+    return next();
+  }
+
+  function find(query, docs, next) {
+    const sanitizedResult = sanitizeDocumentList(schema, query.options, docs);
+
+    return next(null, sanitizedResult);
+  }
+
+  function update(query, next) {
+    // If this is an upsert, you'll need the create permission
+    // TODO add some tests for the upset case
+    if (
+      query.options
+      && query.options.upsert
+      && !hasPermission(schema, query.options, 'create')
+    ) {
+      return next(new PermissionDeniedError('create'));
+    }
+
+    const authorizedFields = getAuthorizedFields(schema, query.options, 'write');
+
+    // check to see if the group is trying to update a field it does not have permission to
+    const modifiedPaths = getUpdatePaths(query._update);
+    const discrepancies = _.difference(modifiedPaths, authorizedFields);
+    if (discrepancies.length > 0) {
+      return next(new PermissionDeniedError('write', discrepancies));
+    }
+
+    // TODO handle the overwrite option
+    // TODO handle Model.updateMany
+
+    // Detect which fields can be returned if 'new: true' is set
+    const authorizedReturnFields = getAuthorizedFields(schema, query.options, 'read');
+
+    // create a sanitizedReturnFields object that will be used to return only the fields that a
+    // group has access to read
+    const sanitizedReturnFields = {};
+    authorizedReturnFields.forEach((field) => {
+      if (!query._fields || query._fields[field]) {
+        sanitizedReturnFields[field] = 1;
+      }
     });
-    schema.pre('findOneAndRemove', function (next) {
-        remove(this, next);
-    });
-    schema.pre('find', function (next) {
-        find(this, next);
-    });
-    schema.pre('findOne', function (next) {
-        find(this, next);
-    });
-    schema.pre('update', function (next) {
-        update(this, next);
-    });
-    schema.pre('findOneAndUpdate', function (next) {
-        update(this, next);
-    });
+    query._fields = sanitizedReturnFields;
 
-    schema.query.setAuthLevel = function(authLevel) {
-        this.options.authLevel = authLevel;
-        return this;
-    };
+    return next();
+  }
 
-    function hasPermission(vm, action) {
-        var authLevel = vm.options.authLevel;
-
-        if (Array.isArray(authLevel)) {
-            return authLevel.filter(function (level) {
-                return vm.schema.permissions[level] && !!vm.schema.permissions[level][action];
-            }).length > 0;
-        } else {
-            return vm.schema.permissions[authLevel] && vm.schema.permissions[authLevel][action];
-        }
+  // Find paths with permissioned schemas and store those so deep checks can be done
+  // on the right paths at call time.
+  schema.pathsWithPermissionedSchemas = {};
+  schema.eachPath((path, schemaType) => {
+    const subSchema = schemaType.schema;
+    if (subSchema && subSchema.permissions) {
+      schema.pathsWithPermissionedSchemas[path] = subSchema;
     }
+  });
 
-    function authOptionPresent(vm) {
-        return vm.options && vm.options.authLevel;
-    }
+  schema.pre('findOneAndRemove', function preFindOneAndRemove(next) {
+    if (authIsDisabled(this.options)) { return next(); }
+    return removeQuery(this, next);
+  });
+  // TODO, WTF, how to prevent someone from Model.find().remove().exec(); That doesn't
+  // fire any remove hooks. Does it fire a find hook?
+  schema.pre('remove', function preRemove(next, options) {
+    if (authIsDisabled(options)) { return next(); }
+    return removeDoc(this, options, next);
+  });
+  schema.pre('save', function preSave(next, options) {
+    if (authIsDisabled(options)) { return next(); }
+    return save(this, options, next);
+  });
+  schema.post('find', function postFind(doc, next) {
+    if (authIsDisabled(this.options)) { return next(); }
+    return find(this, doc, next);
+  });
+  schema.post('findOne', function postFindOne(doc, next) {
+    if (authIsDisabled(this.options)) { return next(); }
+    return find(this, doc, next);
+  });
+  schema.pre('update', function preUpdate(next) {
+    if (authIsDisabled(this.options)) { return next(); }
+    return update(this, next);
+  });
+  schema.pre('findOneAndUpdate', function preFindOneAndUpdate(next) {
+    if (authIsDisabled(this.options)) { return next(); }
+    return update(this, next);
+  });
 
-    function getAuthorizedFields(vm, action) {
-        var authLevel = vm.options.authLevel;
+  schema.query.setAuthLevel = function setAuthLevel(authLevel) {
+    this.options.authLevel = authLevel;
+    return this;
+  };
 
-        if (Array.isArray(authLevel)) {
-            return authLevel.reduce(function (acc, level) {
-                if(vm.schema.permissions[level] && vm.schema.permissions[level][action]) {
-                    return acc.concat(vm.schema.permissions[level][action])
-                }
-                return acc.concat([])
-            }, []);
-        } else {
-            return vm.schema.permissions[authLevel][action] || [];
-        }
-    }
-
-    function save(schema, next) {
-        var vm = schema;
-        if (authOptionPresent(vm)) {
-            if (hasPermission(vm, 'save')) {
-                //check to see if the group has permission to save a new document
-                return next();
-            } else {
-                return next({
-                    message: 'permission denied',
-                    reason: 'you do not have access to the following permissions: [save]'
-                });
-            }
-        } else {
-            return next();
-        }
-    }
-
-    function remove(schema, next) {
-        var vm = schema;
-        if (authOptionPresent(vm)) {
-            if (hasPermission(vm, 'remove')) {
-                //check to see if the group has permission to remove a document
-                return next();
-            } else {
-                return next({
-                    message: 'permission denied',
-                    reason: 'you do not have access to the following permissions: [remove]'
-                });
-            }
-        } else {
-            return next();
-        }
-    }
-
-    function find(schema, next) {
-        var vm = schema;
-        var authorizedFields = [];
-        if (authOptionPresent(vm)) {
-            if (hasPermission(vm, 'read')) {
-                //check to see if the group has any read permissions and add to the authorizedFields array
-                authorizedFields = authorizedFields.concat(getAuthorizedFields(vm, 'read'));
-            }
-            if (vm.schema.permissions.defaults && vm.schema.permissions.defaults.read) {
-                //check to see if there are any default read permissions and add to the authorizedFields array
-                authorizedFields = authorizedFields.concat(vm.schema.permissions.defaults.read);
-            }
-
-            //create a projection object for mongoose based on the authorizedFields array
-            var sanitizedFind = {};
-            authorizedFields.forEach(function (field) {
-                sanitizedFind[field] = 1;
-            });
-
-            //Check to see if group has the permission to perform a find using the specified fields
-            var discrepancies = _.difference(Object.keys(vm._conditions), Object.keys(sanitizedFind));
-            if (discrepancies[0]) {
-                //if a group is searching by a field they do not have access to, return an error
-                return next({
-                    message: 'permission denied',
-                    reason: 'you do not have access to the following fields: [' + discrepancies.toString() + ']'
-                });
-            } else {
-                vm._fields = sanitizedFind;
-                return next();
-            }
-        } else {
-            return next();
-        }
-    }
-
-    function update(schema, next) {
-        var vm = schema;
-        var authorizedFields = [];
-        var authorizedReturnFields = [];
-        if (authOptionPresent(vm)) {
-            if (vm.options.upsert && !hasPermission(vm, 'save')) {
-                //check to see if 'upsert: true' option is set, then verify if group has save permission
-                return next({
-                    message: 'permission denied',
-                    reason: 'you do not have access to the following permissions: [save]'
-                });
-            }
-            if (hasPermission(vm, 'write')) {
-                //check to see if group has any write permissions and add to the authorizedFields array
-                authorizedFields = authorizedFields.concat(getAuthorizedFields(vm, 'write'));
-            }
-            if (vm.schema.permissions.defaults && vm.schema.permissions.defaults.write) {
-                //check to see if there are any default write permissions and add to the authorizedFields array
-                authorizedFields = authorizedFields.concat(vm.schema.permissions.defaults.write);
-            }
-
-            //create an update object that has been sanitized based on permissions
-            var sanitizedUpdate = {};
-            authorizedFields.forEach(function (field) {
-                sanitizedUpdate[field] = vm._update[field];
-            });
-
-            //check to see if the group is trying to update a field it does not have permission to
-            var discrepancies = _.difference(Object.keys(vm._update), Object.keys(sanitizedUpdate));
-            if (discrepancies[0]) {
-                //if a group is searching by a field they do not have access to, return an error
-                return next({
-                    message: 'permission denied',
-                    reason: 'you do not have access to the following fields: [' + discrepancies.toString() + ']'
-                });
-            } else {
-
-                //Detect which fields can be returned if 'new: true' is set
-                if (hasPermission(vm, 'read')) {
-
-                    //check to see if the group has any read permissions and add to the authorizedFields array
-                    authorizedReturnFields = authorizedReturnFields.concat(getAuthorizedFields(vm, 'read'));
-                }
-                if (vm.schema.permissions.defaults && vm.schema.permissions.defaults.read) {
-
-                    //check to see if there are any default read permissions and add to the authorizedFields array
-                    authorizedReturnFields = authorizedReturnFields.concat(vm.schema.permissions.defaults.read);
-                }
-
-                //create a sanitizedReturnFields object that will be used to return only the fields that a group has access to read
-                var sanitizedReturnFields = {};
-                authorizedReturnFields.forEach(function (field) {
-                    sanitizedReturnFields[field] = 1;
-                });
-                vm._fields = sanitizedReturnFields;
-                return next();
-            }
-        } else {
-            return next();
-        }
-    }
+  schema.statics.canCreate = function canCreate(options) {
+    return hasPermission(this.schema, options, 'create');
+  };
 };

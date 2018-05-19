@@ -4,29 +4,17 @@
 
 This plugin allows you to define a custom authorization scheme on your mongoose models.
 
-`npm install -S mongoose-authorization`
+`npm install --save mongoose-authorization`
 
 
 ## Getting Started
 
-First you need to add your permissions to your schema.
-
-#### example model
-
-###### *NOTE: It is important you do this before compiling your model*
-
 ```javascript
 'use strict';
 var mongoose = require('mongoose');
-var uuid = require('uuid');
+var authz = require('mongoose-authorization');
 
 var userSchema = new mongoose.Schema({
-  user_id: {
-    type: String,
-    required: true,
-    unique : true,
-    default: uuid.v4()
-  },
   email: {
     type: String,
     required: true,
@@ -39,11 +27,6 @@ var userSchema = new mongoose.Schema({
   last_name: {
     type: String,
     required: true
-  },
-  password: String,
-  login_attempts: {
-    type: Number,
-    default: 0
   },
   avatar: {
     type: String
@@ -63,12 +46,12 @@ var userSchema = new mongoose.Schema({
  */
 userSchema.permissions = {
   defaults: {
-    read: ['user_id', 'email', 'first_name', 'last_name', 'avatar']
+    read: [email', 'first_name', 'last_name', 'avatar']
   },
   admin: {
     read: ['status'],
     write: ['status'],
-    save: true
+    create: true
   },
   owner: {
     read: ['status'],
@@ -77,29 +60,110 @@ userSchema.permissions = {
   }
 };
 
-userSchema.plugin(require('mongoose-authorization'));
+userSchema.plugin(authz);
 
-/*
- * Compile model
- */
-var users = mongoose.model('users', userSchema);
-
-module.exports = users;
+module.exports = mongoose.model('users', userSchema);
 ```
 
 In the example above we extended the **userSchema** by adding a *permissions* object. This will not persist to your documents.
 
-The permissions object consists or properties that represent your authorization levels (or groups). For each group, there are 4 permissions you can configure.
-* `save` (create) - Boolean
+The permissions object consists of properties that represent your authorization levels (or groups). For each group, there are 4 permissions you can configure.
+* `create` - Boolean
 * `remove` - Boolean
-* `write` - [array of fields] *NOTE: if `upsert: true`, the group will need to have `save` permissions too*
-* `read` (find) - [array of fields]
+* `write` - [array of fields] *NOTE: if `upsert: true`, the group will need to have `create` permissions too*
+* `read` - [array of fields]
 
 You can also specify a `defaults` group, which represents permissions that are available to all groups.
 
+If you need the document in order to determine the correct authorization level for an action, you can place a static `getAuthLevel` function directly in your schema. For applicable actions, this function will be called with a specific document and a payload of data specified in the query. This is useful when the authorization level depends on matching properties of a user with properties of a specific document to determine if *that* user can modify *that* document.
+
+###### *NOTE: The `getAuthLevel` approach does not work for update or remove queries since the document is not loaded into memory.*
+
+```javascript
+var mongoose = require('mongoose');
+
+var carSchema = new mongoose.Schema({
+    make: {
+        type: String,
+        required: true,
+        unique: true
+      },
+    model: {
+        type: String,
+        required: true
+      },
+    year: {
+        type: Number
+      },
+    plate: {
+        type: String
+      }
+  });
+
+/*
+ * Make sure you add this before compiling your model
+ */
+carSchema.permissions = {
+    defaults: {
+        read: ['_id', 'make', 'model', 'year']
+      },
+    maker: {
+        write: ['make', 'model', 'year'],
+        remove: true
+      },
+    dealer: {
+        read: ['plate'],
+        write: ['plate']
+      }
+  };
+
+carSchema.getAuthLevel = function (payload, doc) {
+    if (payload && doc && payload.companyName === doc.make) {
+        return 'maker';
+    }
+
+    return 'dealer';
+}
+```
+
+In you application code, you could then do the following:
+
+```javascript
+Car.find({}, null, { authPayload: { companyName: 'Toyota' } }).exec(...);
+
+// or
+
+myCar.save({ authPayload: { companyName: 'Honda' } });
+```
+
+You can also have the permissions for a specific document injected into the document when returned from a find query using the `permissions` option on the query. The permissions will be inserted into the object using the key `permissions` unless you specify the desired key name as the permissions option.
+
+```javascript
+const user = await User.find().setOptions({ authLevel: 'admin': permissions: true }).exec();
+
+console.log(user.permissions);
+// Outputs:
+// {
+//   read: [...],
+//   write: [...],
+//   remove: [boolean]
+// }
+
+// OR
+const user = await User.find().setOptions({ authLevel: 'admin': permissions: 'foo' }).exec();
+
+console.log(user.foo);
+// Outputs:
+// {
+//   read: [...],
+//   write: [...],
+//   remove: [boolean]
+// }
+```
+
 #### Example Uses
 
-###### *NOTE: If you do not add the authLevel option to your request, the plugin will not attempt to authorize it. This makes it possible for you to handle requests that may not be initiated by a user (eg. system call, batch job, etc.)*
+###### NOTE: If no authLevel is able to be determined, permission to perform the action will be denied. If you would like to circumvent authorization, pass `false` as the authLevel (e.g. `myModel.find().setAuhtLevel(false).exec();`, which will disable authorization for that specific query).
 
 ***example update***
 
@@ -117,62 +181,24 @@ users.update({user_id: userUpdate.user_id}, userUpdate, {
 });
 ```
 
-***example findOneAndUpdate using the newer promise syntax***
 
-###### *NOTE: the return document will be sanitized based on the group's permissions for `read`*
+###### *NOTE: When using `findOneAndUpdate`, the return document will be sanitized based on the group's permissions for `read`*
 
 ```javascript
-users.findOneAndUpdate({user_id: userUpdate.user_id}, userUpdate)
-.exec()
-.then(function(doc) {
-    //success
-})
-.catch(function(err) {
-    // handle error
-})
+await users.findOneAndUpdate(
+  { user_id: userUpdate.user_id },
+  userUpdate,
+  { authLevel: 'admin'}
+);
 ```
 
 
 ***example find***
 
 ```javascript
-users.find({user_id: userUpdate.user_id}, null, {
-  authLevel: 'admin'
-}, function(err, doc) {
-  if (err) {
-    //handle error
-  } else {
-    //success
-  }
-});
-```
-
-***example findOne***
-
-```javascript
-users.findOne({user_id: userUpdate.user_id}, null, {
-  authLevel: 'admin'
-}, function(err, doc) {
-  if (err) {
-    //handle error
-  } else {
-    //success
-  }
-});
-```
-
-***example findOneAndRemove***
-
-###### *NOTE: doc.remove is not supported yet*
-
-```javascript
-users.findOneAndRemove({user_id: userUpdate.user_id}, {
-  authLevel: 'admin'
-}, function(err) {
-  if (err) {
-    //handle error
-  } else {
-    //success
-  }
-});
+await users.find(
+  { user_id: userUpdate.user_id },
+  null,
+  { authLevel: 'admin' }
+);
 ```
