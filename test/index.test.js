@@ -26,6 +26,10 @@ const userSeed2 = {
   last_login_date: new Date(),
   login_attempts: 5,
   avatar: 'http://example2.com',
+  nested: {
+    foo: 'bar',
+    cant_see: 'yo',
+  },
 };
 
 let userDocs;
@@ -224,7 +228,7 @@ module.exports = {
       }
       test.done();
     },
-    'findOne': async (test) => {
+    findOne: async (test) => {
       try {
         const user = await User.findOne({ email: 'foo@example.com' })
           .setAuthLevel('admin')
@@ -292,6 +296,40 @@ module.exports = {
         user.permissions.remove,
         false,
       );
+      test.done();
+    },
+    'nested document, top level': async (test) => {
+      const user = await User
+        .findOne({ email: 'bar@example.com' })
+        .setAuthLevel('top_level_nested')
+        .exec();
+
+      test.equal(
+        user.nested.foo,
+        'bar',
+        'should be able to read entire nested obj with access to top level key',
+      );
+
+      test.done();
+    },
+    'nested document, deep level': async (test) => {
+      const user = await User
+        .findOne({ email: 'bar@example.com' })
+        .setAuthLevel('deep_nested_access')
+        .exec();
+
+      test.equal(
+        user.nested.foo,
+        'bar',
+        'should be able to read specific key in nested object',
+      );
+
+      test.equal(
+        user.nested.cant_see,
+        undefined,
+        'should not be able to read specific sub-object key not in permissions',
+      );
+
       test.done();
     },
   },
@@ -492,20 +530,7 @@ module.exports = {
         last_name: 'Sterling',
         avatar: 'http://someurl.com',
         status: 'active',
-        best_friend: {
-          _id: users[0].best_friend._id,
-          email: 'bar@example.com',
-          first_name: 'Rusty',
-          last_name: 'Shakleford',
-          password: 'foobar',
-          last_login_date: users[0].best_friend.last_login_date,
-          avatar: 'http://example2.com',
-          __v: 0,
-          beyond_permissions: 'some value',
-          all_locations: [],
-          status: 'active',
-          login_attempts: 5,
-        },
+        best_friend: userDocs[1].toJSON(),
       });
 
       test.done();

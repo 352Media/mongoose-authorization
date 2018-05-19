@@ -14,6 +14,7 @@ const goodSchema = new mongoose.Schema({
   address: String,
   phone: String,
   birthday: String,
+  nested: { thing: String },
 });
 goodSchema.permissions = {
   defaults: {
@@ -34,6 +35,12 @@ goodSchema.permissions = {
   stranger: {},
   hasVirtuals: {
     read: ['virtual_name'],
+  },
+  nested_top: {
+    read: ['nested'],
+  },
+  nested_deep: {
+    read: ['nested.thing'],
   },
 };
 goodSchema.virtual('virtual_name').get(function getVirtualName() {
@@ -167,6 +174,16 @@ module.exports = {
       getAuthorizedFields(goodSchema, { authLevel: 'hasVirtuals' }, 'read').sort(),
       ['_id', 'name', 'virtual_name'].sort(),
       'virtuals should be included in the list of fields',
+    );
+    test.deepEqual(
+      getAuthorizedFields(goodSchema, { authLevel: 'nested_top' }, 'read').sort(),
+      ['_id', 'name', 'nested'].sort(),
+      'top level nested field should be ok as authorized field',
+    );
+    test.deepEqual(
+      getAuthorizedFields(goodSchema, { authLevel: 'nested_deep' }, 'read').sort(),
+      ['_id', 'name', 'nested.thing'].sort(),
+      'deeply nested field should be ok as authorized field',
     );
 
     test.done();

@@ -35,6 +35,10 @@ const userSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'newusers',
   },
+  nested: {
+    foo: String,
+    cant_see: String,
+  },
   primary_location: locationSchema,
   all_locations: [locationSchema],
   beyond_permissions: {
@@ -63,6 +67,13 @@ userSchema.permissions = {
     read: ['last_login_date', 'full_name'],
     write: ['email', 'first_name', 'last_name', 'avatar'],
     remove: true,
+  },
+  top_level_nested: {
+    read: ['nested'],
+    write: ['nested'],
+  },
+  deep_nested_access: {
+    read: ['nested.foo'],
   },
 };
 
