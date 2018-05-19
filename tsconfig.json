@@ -1,0 +1,23 @@
+{
+  "include": [
+    "src/**/*",
+    "test/**/*"
+  ],
+  "exclude": [
+    "node_modules"
+  ],
+  "compilerOptions": {
+    "declaration": true,
+    "sourceMap": true,
+    "outDir": "./lib",
+    "lib": [
+      "es2015"
+    ],
+    "typeRoots": [
+      "node_modules/@types"
+    ],
+    /* Basic Options */
+    "target": "es5",
+    "module": "commonjs"
+  }
+}
