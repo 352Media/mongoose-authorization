@@ -474,6 +474,42 @@ module.exports = {
 
       test.done();
     },
+    'permissions explicitly disabled on lower level': async (test) => {
+      const users = await User
+        .find({ email: 'foo@example.com' })
+        .setAuthLevel('admin')
+        .populate({
+          path: 'best_friend',
+          options: { authLevel: false },
+        })
+        .exec();
+
+      // make sure permission are applied to top level, but don't trickle down
+      test.deepEqual(users[0].toJSON(), {
+        _id: users[0]._id,
+        email: 'foo@example.com',
+        first_name: 'Archer',
+        last_name: 'Sterling',
+        avatar: 'http://someurl.com',
+        status: 'active',
+        best_friend: {
+          _id: users[0].best_friend._id,
+          email: 'bar@example.com',
+          first_name: 'Rusty',
+          last_name: 'Shakleford',
+          password: 'foobar',
+          last_login_date: users[0].best_friend.last_login_date,
+          avatar: 'http://example2.com',
+          __v: 0,
+          beyond_permissions: 'some value',
+          all_locations: [],
+          status: 'active',
+          login_attempts: 5,
+        },
+      });
+
+      test.done();
+    },
   },
 };
 
