@@ -23,7 +23,7 @@ export function resolveAuthLevel(schema, options, doc?) {
         .value();
 }
 
-export function getAuthorizedFields(schema, options, action, doc?) {
+export function getAuthorizedFields(schema, options, action, doc?): string[] {
     const authLevels = resolveAuthLevel(schema, options, doc);
 
     return _.chain(authLevels)
@@ -33,7 +33,7 @@ export function getAuthorizedFields(schema, options, action, doc?) {
         .value();
 }
 
-export function hasPermission(schema, options, action, doc?) {
+export function hasPermission(schema, options, action, doc?): boolean {
     const authLevels = resolveAuthLevel(schema, options, doc);
     const perms = schema.permissions || {};
 

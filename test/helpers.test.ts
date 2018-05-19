@@ -1,5 +1,3 @@
-import * as mongoose from 'mongoose';
-
 import {
     resolveAuthLevel,
     getAuthorizedFields,
@@ -7,6 +5,7 @@ import {
     getUpdatePaths,
 } from '../src/helpers';
 import {AuthorizationSchema} from '../src/AuthorizationSchema';
+import {Schema} from 'mongoose';
 
 // Set up a bunch of schemas for testing. We're not going to connect to the database
 // since these tests only depend on the schema definitions.
@@ -64,7 +63,7 @@ bareBonesSchema.permissions = {
     },
 };
 
-const emptySchema = new mongoose.Schema({});
+const emptySchema = new Schema({});
 
 // Options Configs
 const queryOpt = {authLevel: 'admin'};

@@ -444,6 +444,8 @@ module.exports = {
                 test.expect(1);
                 const user = userDocs[1];
                 user.primary_location = {lat: 2, lon: 2};
+                user.markModified('primary_location');
+
                 try {
                     await user.save({authLevel: 'owner'});
                 } catch (err) {
