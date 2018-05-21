@@ -119,10 +119,6 @@ module.exports = {
     },
     'from document getAuthLevel': (test) => {
       test.deepEqual(
-        resolveAuthLevel(goodSchema, {}, { foo: 1 }),
-        ['defaults'],
-      );
-      test.deepEqual(
         resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'admin' } }, { foo: 1 }),
         ['admin', 'defaults'],
       );
@@ -134,10 +130,26 @@ module.exports = {
         resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'self' }, authLevel: 'admin' }, { foo: 1 }),
         ['admin', 'defaults'],
       );
-      test.deepEqual(
-        resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'self' } }),
-        ['self', 'defaults'],
-      );
+      test.done();
+    },
+    'missing authPayload': (test) => {
+      test.expect(1);
+      try {
+        resolveAuthLevel(goodSchema, {}, {});
+      } catch(err) {
+        test.ok(err);
+      }
+
+      test.done();
+    },
+    'missing doc': (test) => {
+      test.expect(1);
+      try {
+        resolveAuthLevel(goodSchema, { authPayload: 'foo' }, false);
+      } catch(err) {
+        test.ok(err);
+      }
+
       test.done();
     },
   },
@@ -198,16 +210,6 @@ module.exports = {
       hasPermission(bareBonesSchema, {}, 'create'),
       false,
       'should return false when no permissions exist',
-    );
-    test.equal(
-      hasPermission(goodSchema, {}, 'create'),
-      false,
-      'default write permission not respected when no authLevel specified',
-    );
-    test.equal(
-      hasPermission(goodSchema, {}, 'create'),
-      false,
-      'should return false when no permission has been set for the action',
     );
     test.equal(
       hasPermission(goodSchema, { authLevel: 'admin' }, 'create'),
