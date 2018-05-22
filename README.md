@@ -46,7 +46,7 @@ var userSchema = new mongoose.Schema({
  */
 userSchema.permissions = {
   defaults: {
-    read: [email', 'first_name', 'last_name', 'avatar']
+    read: ['email', 'first_name', 'last_name', 'avatar']
   },
   admin: {
     read: ['status'],
