@@ -1,5 +1,6 @@
 const _ = require('lodash');
 const {
+  resetCache,
   getAuthorizedFields,
   hasPermission,
   authIsDisabled,
@@ -11,6 +12,7 @@ const PermissionDeniedError = require('./lib/PermissionDeniedError');
 
 module.exports = (schema) => {
   async function save(doc, options, next) {
+    resetCache();
     if (doc.isNew && !await hasPermission(schema, options, 'create', doc)) {
       next(new PermissionDeniedError('create'));
       return;
@@ -29,6 +31,7 @@ module.exports = (schema) => {
   }
 
   async function removeQuery(query, next) {
+    resetCache();
     if (!await hasPermission(schema, query.options, 'remove')) {
       next(new PermissionDeniedError('remove'));
       return;
@@ -39,6 +42,7 @@ module.exports = (schema) => {
   }
 
   async function removeDoc(doc, options, next) {
+    resetCache();
     if (!await hasPermission(schema, options, 'remove', doc)) {
       next(new PermissionDeniedError('remove'));
       return;
@@ -49,12 +53,14 @@ module.exports = (schema) => {
   }
 
   async function find(query, docs, next) {
+    resetCache();
     const sanitizedResult = await sanitizeDocumentList(schema, query.options, docs);
 
     next(null, sanitizedResult);
   }
 
   async function update(query, next) {
+    resetCache();
     // If this is an upsert, you'll need the create permission
     // TODO add some tests for the upset case
     if (
@@ -141,7 +147,7 @@ module.exports = (schema) => {
     return this;
   };
 
-  schema.statics.canCreate = async function canCreate(options) {
-    return await hasPermission(this.schema, options, 'create');
+  schema.statics.canCreate = function canCreate(options) {
+    return hasPermission(this.schema, options, 'create');
   };
 };

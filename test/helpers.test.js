@@ -5,7 +5,10 @@ const {
   getAuthorizedFields,
   hasPermission,
   getUpdatePaths,
+  resetCache,
 } = require('../lib/helpers');
+
+resetCache();
 
 // Set up a bunch of schemas for testing. We're not going to connect to the database
 // since these tests only depend on the schema definitions.
@@ -46,7 +49,9 @@ goodSchema.permissions = {
 goodSchema.virtual('virtual_name').get(function getVirtualName() {
   return `virtual${this.name}`;
 });
+let authLevelCalls = 0;
 goodSchema.getAuthLevel = function getAuthLevel(payload) {
+  authLevelCalls++;
   return payload && payload.authLevel;
 };
 
@@ -138,6 +143,30 @@ module.exports = {
         await resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'self' } }),
         ['self', 'defaults'],
       );
+      test.done();
+    },
+    'getAuthLevel is cached': async (test) => {
+      const options = { authPayload: { authLevel: 'admin' } };
+      const doc = { foo: 1 };
+      authLevelCalls = 0;
+      test.deepEqual(
+        await resolveAuthLevel(goodSchema, options, doc),
+        ['admin', 'defaults'],
+      );
+      test.equal(authLevelCalls, 1);
+      test.deepEqual(
+        await resolveAuthLevel(goodSchema, options, doc),
+        ['admin', 'defaults'],
+      );
+      test.deepEqual(
+        await resolveAuthLevel(goodSchema, options, doc),
+        ['admin', 'defaults'],
+      );
+      test.deepEqual(
+        await resolveAuthLevel(goodSchema, options, doc),
+        ['admin', 'defaults'],
+      );
+      test.equal(authLevelCalls, 1);
       test.done();
     },
   },
