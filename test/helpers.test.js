@@ -1,14 +1,11 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const {
   resolveAuthLevel,
   getAuthorizedFields,
   hasPermission,
-  getUpdatePaths,
-  resetCache,
-} = require('../lib/helpers');
-
-resetCache();
+  getUpdatePaths
+} = require("../lib/helpers");
 
 // Set up a bunch of schemas for testing. We're not going to connect to the database
 // since these tests only depend on the schema definitions.
@@ -17,36 +14,36 @@ const goodSchema = new mongoose.Schema({
   address: String,
   phone: String,
   birthday: String,
-  nested: { thing: String },
+  nested: { thing: String }
 });
 goodSchema.permissions = {
   defaults: {
-    read: ['_id', 'name'],
+    read: ["_id", "name"],
     write: [],
-    create: false,
+    create: false
   },
   admin: {
-    read: ['address', 'phone', 'birthday'],
-    write: ['address', 'phone', 'birthday'],
+    read: ["address", "phone", "birthday"],
+    write: ["address", "phone", "birthday"],
     create: true,
-    remove: true,
+    remove: true
   },
   self: {
-    read: ['address', 'phone', 'birthday'],
-    write: ['address', 'phone'],
+    read: ["address", "phone", "birthday"],
+    write: ["address", "phone"]
   },
   stranger: {},
   hasVirtuals: {
-    read: ['virtual_name'],
+    read: ["virtual_name"]
   },
   nested_top: {
-    read: ['nested'],
+    read: ["nested"]
   },
   nested_deep: {
-    read: ['nested.thing'],
-  },
+    read: ["nested.thing"]
+  }
 };
-goodSchema.virtual('virtual_name').get(function getVirtualName() {
+goodSchema.virtual("virtual_name").get(function getVirtualName() {
   return `virtual${this.name}`;
 });
 let authLevelCalls = 0;
@@ -58,190 +55,244 @@ goodSchema.getAuthLevel = function getAuthLevel(payload) {
 const bareBonesSchema = new mongoose.Schema({});
 bareBonesSchema.permissions = {
   admin: {
-    read: ['address', 'phone', 'birthday', 'does_not_exist'],
-    write: ['address', 'phone', 'birthday', 'not_here_either'],
+    read: ["address", "phone", "birthday", "does_not_exist"],
+    write: ["address", "phone", "birthday", "not_here_either"],
     create: true,
-    remove: true,
-  },
+    remove: true
+  }
 };
 
 const emptySchema = new mongoose.Schema({});
 
 // Options Configs
-const queryOpt = { authLevel: 'admin' };
+const queryOpt = { authLevel: "admin" };
 
 module.exports = {
   resolveAuthLevel: {
-    'single in query options': async (test) => {
+    "single in query options": async test => {
       // Single Auth level in query options
-      test.deepEqual(
-        await resolveAuthLevel(goodSchema, queryOpt),
-        ['admin', 'defaults'],
-      );
+      test.deepEqual(await resolveAuthLevel(goodSchema, queryOpt), [
+        "admin",
+        "defaults"
+      ]);
 
       test.done();
     },
-    'unknown in query options': async (test) => {
+    "unknown in query options": async test => {
       test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authLevel: 'foobar' }),
-        ['defaults'],
+        await resolveAuthLevel(goodSchema, { authLevel: "foobar" }),
+        ["defaults"]
       );
       test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authLevel: ['foobar', 'self'] }),
-        ['self', 'defaults'],
+        await resolveAuthLevel(goodSchema, { authLevel: ["foobar", "self"] }),
+        ["self", "defaults"]
       );
       test.deepEqual(
-        await resolveAuthLevel(bareBonesSchema, { authLevel: ['foobar'] }),
-        [],
+        await resolveAuthLevel(bareBonesSchema, { authLevel: ["foobar"] }),
+        []
       );
       test.deepEqual(
-        await resolveAuthLevel(bareBonesSchema, { authLevel: 'default' }),
-        [],
-      );
-      test.done();
-    },
-    'bad schema': async (test) => {
-      test.deepEqual(
-        await resolveAuthLevel(emptySchema, { authLevel: 'admin' }),
-        [],
+        await resolveAuthLevel(bareBonesSchema, { authLevel: "default" }),
+        []
       );
       test.done();
     },
-    'multiple in query options': async (test) => {
+    "bad schema": async test => {
       test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authLevel: ['self', 'admin'] }),
-        ['self', 'admin', 'defaults'],
-      );
-      test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authLevel: ['defaults'] }),
-        ['defaults'],
-      );
-      test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authLevel: ['self', 'admin', 'self', 'default', 'admin'] }),
-        ['self', 'admin', 'defaults'],
+        await resolveAuthLevel(emptySchema, { authLevel: "admin" }),
+        []
       );
       test.done();
     },
-    'from document getAuthLevel': async (test) => {
+    "multiple in query options": async test => {
       test.deepEqual(
-        await resolveAuthLevel(goodSchema, {}, { foo: 1 }),
-        ['defaults'],
+        await resolveAuthLevel(goodSchema, { authLevel: ["self", "admin"] }),
+        ["self", "admin", "defaults"]
       );
       test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'admin' } }, { foo: 1 }),
-        ['admin', 'defaults'],
+        await resolveAuthLevel(goodSchema, { authLevel: ["defaults"] }),
+        ["defaults"]
       );
       test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authPayload: { authLevel: false } }, { foo: 1 }),
-        ['defaults'],
-      );
-      test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'self' }, authLevel: 'admin' }, { foo: 1 }),
-        ['admin', 'defaults'],
-      );
-      test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'self' } }),
-        ['self', 'defaults'],
+        await resolveAuthLevel(goodSchema, {
+          authLevel: ["self", "admin", "self", "default", "admin"]
+        }),
+        ["self", "admin", "defaults"]
       );
       test.done();
     },
-    'getAuthLevel is cached': async (test) => {
-      const options = { authPayload: { authLevel: 'admin' } };
+    "from document getAuthLevel": async test => {
+      test.deepEqual(await resolveAuthLevel(goodSchema, {}, { foo: 1 }), [
+        "defaults"
+      ]);
+      test.deepEqual(
+        await resolveAuthLevel(
+          goodSchema,
+          { authPayload: { authLevel: "admin" } },
+          { foo: 1 }
+        ),
+        ["admin", "defaults"]
+      );
+      test.deepEqual(
+        await resolveAuthLevel(
+          goodSchema,
+          { authPayload: { authLevel: false } },
+          { foo: 1 }
+        ),
+        ["defaults"]
+      );
+      test.deepEqual(
+        await resolveAuthLevel(
+          goodSchema,
+          { authPayload: { authLevel: "self" }, authLevel: "admin" },
+          { foo: 1 }
+        ),
+        ["admin", "defaults"]
+      );
+      let caught;
+      await resolveAuthLevel(goodSchema, {
+        authPayload: { authLevel: "self" }
+      }).catch(() => { caught = true; });
+      test.equal(caught, true);
+      test.done();
+    },
+    "getAuthLevel is cached": async test => {
+      const options = { authPayload: { authLevel: "admin" } };
       const doc = { foo: 1 };
       authLevelCalls = 0;
-      test.deepEqual(
-        await resolveAuthLevel(goodSchema, options, doc),
-        ['admin', 'defaults'],
-      );
+      test.deepEqual(await resolveAuthLevel(goodSchema, options, doc), [
+        "admin",
+        "defaults"
+      ]);
       test.equal(authLevelCalls, 1);
-      test.deepEqual(
-        await resolveAuthLevel(goodSchema, options, doc),
-        ['admin', 'defaults'],
-      );
-      test.deepEqual(
-        await resolveAuthLevel(goodSchema, options, doc),
-        ['admin', 'defaults'],
-      );
-      test.deepEqual(
-        await resolveAuthLevel(goodSchema, options, doc),
-        ['admin', 'defaults'],
-      );
+      test.deepEqual(await resolveAuthLevel(goodSchema, options, doc), [
+        "admin",
+        "defaults"
+      ]);
+      test.deepEqual(await resolveAuthLevel(goodSchema, options, doc), [
+        "admin",
+        "defaults"
+      ]);
+      test.deepEqual(await resolveAuthLevel(goodSchema, options, doc), [
+        "admin",
+        "defaults"
+      ]);
       test.equal(authLevelCalls, 1);
       test.done();
-    },
+    }
   },
   async getAuthorizedFields(test) {
     test.deepEqual(
-      await getAuthorizedFields(bareBonesSchema, { authLevel: 'foobar' }, 'read'),
-      [],
+      await getAuthorizedFields(
+        bareBonesSchema,
+        { authLevel: "foobar" },
+        "read"
+      ),
+      []
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'foobar' }, 'read')).sort(),
-      ['_id', 'name'].sort(),
+      (await getAuthorizedFields(
+        goodSchema,
+        { authLevel: "foobar" },
+        "read"
+      )).sort(),
+      ["_id", "name"].sort()
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'admin' }, 'read')).sort(),
-      ['_id', 'name', 'address', 'phone', 'birthday'].sort(),
+      (await getAuthorizedFields(
+        goodSchema,
+        { authLevel: "admin" },
+        "read"
+      )).sort(),
+      ["_id", "name", "address", "phone", "birthday"].sort()
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'stranger' }, 'read')).sort(),
-      ['_id', 'name'].sort(),
+      (await getAuthorizedFields(
+        goodSchema,
+        { authLevel: "stranger" },
+        "read"
+      )).sort(),
+      ["_id", "name"].sort()
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: ['self', 'admin'] }, 'read')).sort(),
-      ['_id', 'name', 'address', 'phone', 'birthday'].sort(),
+      (await getAuthorizedFields(
+        goodSchema,
+        { authLevel: ["self", "admin"] },
+        "read"
+      )).sort(),
+      ["_id", "name", "address", "phone", "birthday"].sort()
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'self' }, 'write')).sort(),
-      ['address', 'phone'].sort(),
+      (await getAuthorizedFields(
+        goodSchema,
+        { authLevel: "self" },
+        "write"
+      )).sort(),
+      ["address", "phone"].sort()
     );
     test.deepEqual(
-      await getAuthorizedFields(bareBonesSchema, { authLevel: 'admin' }, 'write'),
-      [],
+      await getAuthorizedFields(
+        bareBonesSchema,
+        { authLevel: "admin" },
+        "write"
+      ),
+      []
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'hasVirtuals' }, 'read')).sort(),
-      ['_id', 'name', 'virtual_name'].sort(),
-      'virtuals should be included in the list of fields',
+      (await getAuthorizedFields(
+        goodSchema,
+        { authLevel: "hasVirtuals" },
+        "read"
+      )).sort(),
+      ["_id", "name", "virtual_name"].sort(),
+      "virtuals should be included in the list of fields"
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'nested_top' }, 'read')).sort(),
-      ['_id', 'name', 'nested'].sort(),
-      'top level nested field should be ok as authorized field',
+      (await getAuthorizedFields(
+        goodSchema,
+        { authLevel: "nested_top" },
+        "read"
+      )).sort(),
+      ["_id", "name", "nested"].sort(),
+      "top level nested field should be ok as authorized field"
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'nested_deep' }, 'read')).sort(),
-      ['_id', 'name', 'nested.thing'].sort(),
-      'deeply nested field should be ok as authorized field',
+      (await getAuthorizedFields(
+        goodSchema,
+        { authLevel: "nested_deep" },
+        "read"
+      )).sort(),
+      ["_id", "name", "nested.thing"].sort(),
+      "deeply nested field should be ok as authorized field"
     );
 
     test.done();
   },
   async hasPermission(test) {
     test.equal(
-      await hasPermission(bareBonesSchema, undefined, 'create'),
+      await hasPermission(bareBonesSchema, undefined, "create"),
       false,
-      'should return false when no options provided',
+      "should return false when no options provided"
     );
     test.equal(
-      await hasPermission(bareBonesSchema, {}, 'create'),
+      await hasPermission(bareBonesSchema, {}, "create"),
       false,
-      'should return false when no permissions exist',
+      "should return false when no permissions exist"
     );
     test.equal(
-      await hasPermission(goodSchema, {}, 'create'),
+      await hasPermission(goodSchema, {}, "create"),
       false,
-      'default write permission not respected when no authLevel specified',
+      "default write permission not respected when no authLevel specified"
     );
     test.equal(
-      await hasPermission(goodSchema, {}, 'create'),
+      await hasPermission(goodSchema, {}, "create"),
       false,
-      'should return false when no permission has been set for the action',
+      "should return false when no permission has been set for the action"
     );
     test.equal(
-      await hasPermission(goodSchema, { authLevel: 'admin' }, 'create'),
+      await hasPermission(goodSchema, { authLevel: "admin" }, "create"),
       true,
-      'should return true when an AuthLevel says so, despite default',
+      "should return true when an AuthLevel says so, despite default"
     );
     test.done();
   },
@@ -262,19 +313,12 @@ module.exports = {
     test.done();
   },
   getUpdatePaths(test) {
-    test.deepEqual(
-      getUpdatePaths({ $set: { foo: 1 } }).sort(),
-      ['foo'],
-    );
+    test.deepEqual(getUpdatePaths({ $set: { foo: 1 } }).sort(), ["foo"]);
     test.deepEqual(
       getUpdatePaths({ $set: { foo: 1 }, $inc: { bar: 2 } }).sort(),
-      ['bar', 'foo'],
+      ["bar", "foo"]
     );
-    test.deepEqual(
-      getUpdatePaths({ foo: 1, bar: 2 }).sort(),
-      ['bar', 'foo'],
-    );
+    test.deepEqual(getUpdatePaths({ foo: 1, bar: 2 }).sort(), ["bar", "foo"]);
     test.done();
-  },
+  }
 };
-
