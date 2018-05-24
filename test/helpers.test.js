@@ -119,7 +119,7 @@ module.exports = {
     },
     'from document getAuthLevel': async (test) => {
       test.deepEqual(
-        resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'admin' } }, { foo: 1 }),
+        await resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'admin' } }, { foo: 1 }),
         ['admin', 'defaults'],
       );
       test.deepEqual(
@@ -131,7 +131,7 @@ module.exports = {
         ['admin', 'defaults'],
       );
       test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'self' } }),
+        await resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'self' } }, {}),
         ['self', 'defaults'],
       );
       test.done();
