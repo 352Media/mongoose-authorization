@@ -25,9 +25,6 @@ const carSchema = new mongoose.Schema({
  * Make sure you add this before compiling your model
  */
 carSchema.permissions = {
-  defaults: {
-    read: ['_id', 'make', 'model', 'year'],
-  },
   maker: {
     write: ['make', 'model', 'year'],
     remove: true,

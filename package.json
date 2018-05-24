@@ -1,6 +1,6 @@
 {
-  "name": "mongoose-authorization",
-  "version": "2.0.0-alpha.1",
+  "name": "mongoose-authz",
+  "version": "1.0.0-alpha.1",
   "engines": {
     "node": ">=8.2.1"
   },
@@ -11,7 +11,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/352Media/mongoose-authorization.git"
+    "url": "git+https://github.com/devcolor/mongoose-authz.git"
   },
   "keywords": [
     "mongoose",
@@ -28,17 +28,17 @@
     "mongo permissions",
     "mongodb permissions"
   ],
-  "author": "352inc <devops@352inc.com> (http://352inc.com)",
+  "author": "Makinde Adeagbo",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/352Media/mongoose-authorization/issues"
+    "url": "https://github.com/devcolor/mongoose-authz/issues"
   },
-  "homepage": "https://github.com/352Media/mongoose-authorization#readme",
+  "homepage": "https://github.com/devcolor/mongoose-authz#readme",
   "dependencies": {
     "lodash": "^4.17.5"
   },
   "peerDependencies": {
-    "mongoose": "^4.5.0"
+    "mongoose": "^5.0.0"
   },
   "devDependencies": {
     "eslint": "4.19.1",
@@ -46,7 +46,7 @@
     "eslint-plugin-import": "2.9.0",
     "mongodb": "^3.0.1",
     "mongodb-runner": "3.6.1",
-    "mongoose": "^4.13.9",
+    "mongoose": "^5.0.0",
     "nodeunit": "^0.11.2"
   }
 }
