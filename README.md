@@ -1,10 +1,8 @@
-# mongoose-authorization
-
-[![Build Status](https://travis-ci.org/352Media/mongoose-authorization.svg?branch=dev)](https://travis-ci.org/352Media/mongoose-authorization)
+# mongoose-authz
 
 This plugin allows you to define a custom authorization scheme on your mongoose models.
 
-`npm install --save mongoose-authorization`
+`npm install --save mongoose-authz`
 
 
 ## Getting Started
@@ -12,7 +10,7 @@ This plugin allows you to define a custom authorization scheme on your mongoose 
 ```javascript
 'use strict';
 var mongoose = require('mongoose');
-var authz = require('mongoose-authorization');
+var authz = require('mongoose-authz');
 
 var userSchema = new mongoose.Schema({
   email: {
