@@ -38,7 +38,7 @@
     "lodash": "^4.17.5"
   },
   "peerDependencies": {
-    "mongoose": "^4.5.0"
+    "mongoose": "^5.0.0"
   },
   "devDependencies": {
     "eslint": "4.19.1",

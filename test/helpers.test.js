@@ -141,76 +141,71 @@ module.exports = {
       test.done();
     },
   },
-  async getAuthorizedFields(test) {
+  getAuthorizedFields(test) {
     test.deepEqual(
-      await getAuthorizedFields(bareBonesSchema, { authLevel: 'foobar' }, 'read'),
+      getAuthorizedFields(bareBonesSchema, 'foobar', 'read'),
       [],
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'foobar' }, 'read')).sort(),
+      getAuthorizedFields(goodSchema, ['defaults', 'foobar'], 'read').sort(),
       ['_id', 'name'].sort(),
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'admin' }, 'read')).sort(),
+      getAuthorizedFields(goodSchema, ['defaults', 'admin'], 'read').sort(),
       ['_id', 'name', 'address', 'phone', 'birthday'].sort(),
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'stranger' }, 'read')).sort(),
+      getAuthorizedFields(goodSchema, ['defaults', 'stranger'], 'read').sort(),
       ['_id', 'name'].sort(),
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: ['self', 'admin'] }, 'read')).sort(),
+      getAuthorizedFields(goodSchema, ['defaults', 'self', 'admin'], 'read').sort(),
       ['_id', 'name', 'address', 'phone', 'birthday'].sort(),
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'self' }, 'write')).sort(),
+      getAuthorizedFields(goodSchema, ['defaults', 'self'], 'write').sort(),
       ['address', 'phone'].sort(),
     );
     test.deepEqual(
-      await getAuthorizedFields(bareBonesSchema, { authLevel: 'admin' }, 'write'),
+      getAuthorizedFields(bareBonesSchema, 'admin', 'write'),
       [],
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'hasVirtuals' }, 'read')).sort(),
+      getAuthorizedFields(goodSchema, ['defaults', 'hasVirtuals'], 'read').sort(),
       ['_id', 'name', 'virtual_name'].sort(),
       'virtuals should be included in the list of fields',
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'nested_top' }, 'read')).sort(),
+      getAuthorizedFields(goodSchema, ['defaults', 'nested_top'], 'read').sort(),
       ['_id', 'name', 'nested'].sort(),
       'top level nested field should be ok as authorized field',
     );
     test.deepEqual(
-      (await getAuthorizedFields(goodSchema, { authLevel: 'nested_deep' }, 'read')).sort(),
+      getAuthorizedFields(goodSchema, ['defaults', 'nested_deep'], 'read').sort(),
       ['_id', 'name', 'nested.thing'].sort(),
       'deeply nested field should be ok as authorized field',
     );
 
     test.done();
   },
-  async hasPermission(test) {
+  hasPermission(test) {
     test.equal(
-      await hasPermission(bareBonesSchema, undefined, 'create'),
+      hasPermission(bareBonesSchema, undefined, 'create'),
       false,
       'should return false when no options provided',
     );
     test.equal(
-      await hasPermission(bareBonesSchema, {}, 'create'),
+      hasPermission(bareBonesSchema, [], 'create'),
       false,
       'should return false when no permissions exist',
     );
     test.equal(
-      await hasPermission(goodSchema, {}, 'create'),
-      false,
-      'default write permission not respected when no authLevel specified',
-    );
-    test.equal(
-      await hasPermission(goodSchema, {}, 'create'),
+      hasPermission(goodSchema, [], 'create'),
       false,
       'should return false when no permission has been set for the action',
     );
     test.equal(
-      await hasPermission(goodSchema, { authLevel: 'admin' }, 'create'),
+      hasPermission(goodSchema, ['default', 'admin'], 'create'),
       true,
       'should return true when an AuthLevel says so, despite default',
     );

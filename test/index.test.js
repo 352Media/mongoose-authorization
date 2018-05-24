@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const User = require('./user.schema');
+const Car = require('./car.schema');
 const PermissionDeniedError = require('../lib/PermissionDeniedError');
 
 const dbUri = 'mongodb://localhost:27017/mongooseAuthorization';
@@ -32,7 +33,22 @@ const userSeed2 = {
   },
 };
 
+const carSeed1 = {
+  make: 'honda',
+  model: 'civic',
+  year: 2015,
+  plate: '29KHGV',
+}
+
+const carSeed2 = {
+  make: 'ford',
+  model: 'focus',
+  year: 2016,
+  plate: 'IHW872',
+}
+
 let userDocs;
+let carDocs;
 
 const { permissions } = User.schema;
 
@@ -41,7 +57,7 @@ const levelPermissions = Object.assign({}, permissions);
 delete levelPermissions.defaults;
 
 mongoose.Promise = global.Promise;
-mongoose.connect(dbUri, { useMongoClient: true });
+mongoose.connect(dbUri);
 mongoose.connection.on('error', (err) => {
   // eslint-disable-next-line no-console
   console.error(`Failed to connect to mongo at ${dbUri}`);
@@ -55,12 +71,16 @@ module.exports = {
     try {
       // conveniently, these static methods go around our authorization hooks
       await User.remove({});
+      await Car.remove({});
 
       const user1 = await new User(userSeed1).save({ authLevel: false });
       const user2 = await new User(userSeed2).save({ authLevel: false });
       user1.best_friend = user2;
       await user1.save({ authLevel: false });
       userDocs = [user1, user2];
+      const car1 = await new Car(carSeed1).save({ authLevel: false });
+      const car2 = await new Car(carSeed2).save({ authLevel: false });
+      carDocs = [car1, car2];
       callback();
     } catch (err) {
       callback(err);
@@ -235,6 +255,32 @@ module.exports = {
           .exec();
         test.ok(user);
         test.equal(user.status, 'active');
+      } catch (err) {
+        test.ifError(err);
+      }
+      test.done();
+    },
+    'some docs fail': async (test) => {
+      try {
+        const cars = await Car.find()
+          .setOptions({ authPayload: { companyName: 'ford' } })
+          .exec();
+        test.equal(cars.length, 1);
+      } catch (err) {
+        test.ifError(err);
+      }
+      test.done();
+    },
+    'findOne, no permission to view': async (test) => {
+      try {
+        const car = await Car.findOne()
+          .setOptions({ authPayload: { } })
+          .exec();
+        test.equal(car.make, undefined);
+        test.equal(car.model, undefined);
+        test.equal(car.id, undefined);
+        test.equal(car.year, undefined);
+        test.equal(car.plate, undefined);
       } catch (err) {
         test.ifError(err);
       }
