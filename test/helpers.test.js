@@ -119,11 +119,7 @@ module.exports = {
     },
     'from document getAuthLevel': async (test) => {
       test.deepEqual(
-        await resolveAuthLevel(goodSchema, {}, { foo: 1 }),
-        ['defaults'],
-      );
-      test.deepEqual(
-        await resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'admin' } }, { foo: 1 }),
+        resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'admin' } }, { foo: 1 }),
         ['admin', 'defaults'],
       );
       test.deepEqual(
@@ -138,6 +134,25 @@ module.exports = {
         await resolveAuthLevel(goodSchema, { authPayload: { authLevel: 'self' } }),
         ['self', 'defaults'],
       );
+      test.done();
+    },
+    'missing authPayload': async (test) => {
+      test.expect(1);
+      try {
+        await resolveAuthLevel(goodSchema, {}, {});
+      } catch(err) {
+        test.ok(err);
+      }
+
+      test.done();
+    },
+    'missing doc': async (test) => {
+      test.expect(1);
+      try {
+        await resolveAuthLevel(goodSchema, { authPayload: 'foo' }, false);
+      } catch(err) {
+        test.ok(err);
+      }
       test.done();
     },
   },
@@ -205,7 +220,7 @@ module.exports = {
       'should return false when no permission has been set for the action',
     );
     test.equal(
-      hasPermission(goodSchema, ['default', 'admin'], 'create'),
+      hasPermission(goodSchema, ['defaults', 'admin'], 'create'),
       true,
       'should return true when an AuthLevel says so, despite default',
     );
